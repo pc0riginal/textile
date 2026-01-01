@@ -1,280 +1,138 @@
-# Textile Business Management System
+![Build](https://github.com/koyeb/koyeb-cli/workflows/Release/badge.svg)
 
-A comprehensive full-stack web application for managing textile/fabric trading businesses built with FastAPI, MongoDB, and modern web technologies.
+# Koyeb CLI
 
-## Features
+The Koyeb CLI (Command Line Interface) is a powerful tool to manage your Koyeb serverless infrastructure directly from your terminal.
 
-### Core Functionality
-- **Multi-Company Management**: Manage multiple business entities with independent data
-- **Party Management**: Handle customers, suppliers, brokers, and transporters
-- **Purchase Management**: Grey challan entry with inventory tracking
-- **Sales Management**: Invoice generation with stock selection
-- **Advanced Inventory Transfers**: Material distribution with complete lineage tracking
-- **Payment Management**: Receipt/payment entry with invoice settlement
-- **Bank Integration**: Bank account management and reconciliation
-- **Comprehensive Reports**: Financial, business, and compliance reports
-- **GST Compliance**: Automatic tax calculations and GST-ready reports
+## Installation
 
-### Key Highlights
-- **Material Lineage Tracking**: Complete traceability of material movement from source to destination
-- **Real-time Inventory Management**: Box-level tracking with transfer validation
-- **Multi-recipient Transfers**: Transfer material from one source to multiple recipients
-- **Automated Challan Creation**: Auto-generate recipient challans during transfers
-- **Advanced Search**: Party search with autocomplete functionality
-- **Responsive Design**: Modern UI with Tailwind CSS and Alpine.js
+### Download from GitHub
 
-## Technology Stack
+The CLI can be installed from pre-compiled binaries for macOS (darwin), Linux and Windows. You can download the appropriate version from the [Releases](https://github.com/koyeb/koyeb-cli/releases) page.
 
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB with Motor (async driver)
-- **Frontend**: Server-side rendering with Jinja2 templates
-- **Styling**: Tailwind CSS
-- **Interactivity**: Alpine.js
-- **Authentication**: JWT with HTTP-only cookies
-- **Containerization**: Docker & Docker Compose
+### MacOS
 
-## Quick Start
+You can install the latest version of the Koyeb CLI on macOS using [Homebrew](http://brew.sh/):
 
-### Using Docker (Recommended)
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd textile
-   ```
-
-2. **Start with Docker Compose**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Access the application**
-   - Open http://localhost:8000 in your browser
-   - Use demo credentials: `admin` / `admin123`
-
-### Manual Setup
-
-1. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Set up MongoDB**
-   - Install MongoDB locally or use MongoDB Atlas
-   - Update `MONGODB_URL` in `.env` file
-
-3. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your settings
-   ```
-
-4. **Run the application**
-   ```bash
-   uvicorn main:app --reload
-   ```
-
-## Project Structure
-
-```
-textile_erp/
-├── main.py                     # FastAPI app entry point
-├── config.py                   # Configuration settings
-├── requirements.txt            # Python dependencies
-├── Dockerfile                  # Docker configuration
-├── docker-compose.yml         # Docker Compose setup
-│
-├── app/
-│   ├── database.py            # MongoDB connection
-│   ├── auth.py                # Authentication logic
-│   ├── dependencies.py        # FastAPI dependencies
-│   │
-│   ├── models/                # Pydantic models
-│   │   ├── user.py
-│   │   ├── company.py
-│   │   ├── party.py
-│   │   ├── challan.py
-│   │   └── transfer.py
-│   │
-│   ├── routers/               # API routes
-│   │   ├── auth.py
-│   │   ├── dashboard.py
-│   │   ├── companies.py
-│   │   ├── parties.py
-│   │   ├── challans.py
-│   │   └── transfers.py
-│   │
-│   ├── services/              # Business logic
-│   │   └── inventory_service.py
-│   │
-│   ├── templates/             # Jinja2 templates
-│   │   ├── base.html
-│   │   ├── dashboard.html
-│   │   ├── companies/
-│   │   ├── parties/
-│   │   ├── challans/
-│   │   └── transfers/
-│   │
-│   └── static/                # Static files
-│       ├── css/
-│       ├── js/
-│       └── images/
+```shell
+brew install koyeb/tap/koyeb
 ```
 
-## Key Features Explained
+You can upgrade an existing installation of the Koyeb CLI running:
 
-### Inventory Transfer System
-
-The system implements a sophisticated inventory transfer mechanism:
-
-1. **Source Selection**: Choose from available purchase challans with inventory
-2. **Multi-recipient Support**: Transfer to multiple parties in a single operation
-3. **Automatic Validation**: Real-time checks for available quantity
-4. **Challan Auto-creation**: Automatically creates new challans for recipients
-5. **Lineage Tracking**: Complete material movement history
-6. **Reversal Support**: Ability to reverse transfers with inventory restoration
-
-### Material Lineage
-
-Track complete material journey:
-- Original purchase challan
-- All transfer operations
-- Current location and ownership
-- Visual flow representation
-- Audit trail with timestamps
-
-### Multi-Company Architecture
-
-- Independent data partitioning by company
-- Company switching in navigation
-- Role-based access control
-- Separate financial years and document series
-
-## Database Collections
-
-### Key Collections
-- `users`: User accounts and authentication
-- `companies`: Business entities
-- `parties`: Customers, suppliers, brokers, transporters
-- `purchase_challans`: Purchase records with inventory tracking
-- `inventory_transfers`: Transfer operations and lineage
-- `sales_invoices`: Sales transactions
-- `payments`: Payment records and settlements
-- `bank_accounts` & `bank_transactions`: Banking operations
-
-### Inventory Tracking Fields
-Each purchase challan maintains:
-- `total_boxes/meters`: Original quantity
-- `available_boxes/meters`: Current available quantity
-- `transferred_boxes/meters`: Total transferred out
-- `is_transfer_source`: Has material been transferred from this challan
-- `is_received_via_transfer`: Was this challan created via transfer
-- `transfer_source_id`: Link to original source (if applicable)
-
-## API Endpoints
-
-### Authentication
-- `POST /auth/login` - User login
-- `POST /auth/register` - User registration
-- `GET /auth/logout` - User logout
-
-### Core Operations
-- `GET /dashboard` - Dashboard with metrics
-- `GET|POST /companies` - Company management
-- `GET|POST /parties` - Party management
-- `GET|POST /challans` - Purchase challan operations
-- `GET|POST /transfers` - Inventory transfer operations
-
-### Advanced Features
-- `GET /transfers/tracking` - Transfer tracking and chains
-- `GET /transfers/lineage/{challan_id}` - Material lineage view
-- `GET /parties/search` - Party search API
-- `POST /transfers/reverse/{transfer_id}` - Reverse transfer operation
-
-## Development
-
-### Adding New Features
-
-1. **Create Model**: Add Pydantic model in `app/models/`
-2. **Create Router**: Add FastAPI router in `app/routers/`
-3. **Create Templates**: Add Jinja2 templates in `app/templates/`
-4. **Update Navigation**: Modify sidebar in `app/templates/components/sidebar.html`
-5. **Register Router**: Include router in `main.py`
-
-### Database Operations
-
-The application uses MongoDB with Motor for async operations:
-
-```python
-from app.database import get_collection
-
-# Get collection
-collection = await get_collection("collection_name")
-
-# Insert document
-result = await collection.insert_one(document)
-
-# Find documents
-documents = await collection.find(filter).to_list(None)
-
-# Update document
-await collection.update_one(filter, update)
+```
+brew upgrade koyeb
 ```
 
-### Inventory Service
+### Living at the Edge
 
-The `InventoryService` class handles complex transfer operations:
+To install the latest `koyeb` binary with go, simply run:
 
-```python
-from app.services.inventory_service import InventoryService
-
-service = InventoryService()
-transfer_id = await service.create_transfer(company_id, transfer_data, user_id)
+```shell
+go get github.com/koyeb/koyeb-cli/cmd/koyeb
+go install github.com/koyeb/koyeb-cli/cmd/koyeb
 ```
 
-## Production Deployment
+If you need a go environment, follow the [official Go installation documentation](https://golang.org/doc/install).
 
-### Environment Variables
-```bash
-MONGODB_URL=mongodb://username:password@host:port/database
-DATABASE_NAME=textile_erp
-SECRET_KEY=your-super-secret-key
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+## Getting started
+
+### Initial configuration
+
+Generate an API token and run `koyeb login` to create a new configuration file.
+
+```shell
+➜ koyeb login
+? Do you want to create a new configuration file in (/Users/kbot/.koyeb.yaml)? [y/N]
+✗ Enter your personal access token. You can create a new token here (https://app.koyeb.com/user/settings/api/): *************
+INFO[0006] Creating new configuration in /Users/kbot/.koyeb.yaml
 ```
 
-### Security Considerations
-- Change default secret key
-- Use strong MongoDB credentials
-- Enable HTTPS in production
-- Implement rate limiting
-- Regular security updates
+### General usage
 
-### Performance Optimization
-- Database indexing on frequently queried fields
-- Connection pooling for MongoDB
-- Static file serving via CDN
-- Caching for frequently accessed data
+```shell
+➜ koyeb --help
+Koyeb CLI
 
-## Contributing
+Usage:
+  koyeb [command]
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+Available Commands:
+  apps        Apps
+  completion  Generate completion script
+  deployments Deployments
+  help        Help about any command
+  instances   Instances
+  login       Login to your Koyeb account
+  secrets     Secrets
+  services    Services
+  version     Get version
 
-## License
+Flags:
+  -c, --config string   config file (default is $HOME/.koyeb.yaml)
+  -d, --debug           debug
+      --full            show full id
+  -h, --help            help for koyeb
+  -o, --output string   output format (yaml,json,table)
+      --token string    API token
+      --url string      url of the api (default "https://app.koyeb.com")
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Use "koyeb [command] --help" for more information about a command.
+```
 
-## Support
 
-For support and questions:
-- Create an issue in the repository
-- Check the documentation
-- Review the code examples
+### Enabling shell auto-completion
 
----
+`koyeb` has auto-completion support for `bash`, `zsh` and `fish`.
 
-**Note**: This is a comprehensive business management system. Ensure proper testing before using in production environments.
+#### Bash
+
+You can easily do `source <(koyeb completion bash)` to add completion to your current Bash session.
+
+To load completions for all sessions, simply add the auto-completion script to your `bash_completion.d` folder.
+
+On Linux:
+
+```shell
+koyeb completion bash > /etc/bash_completion.d/koyeb
+```
+
+On MacOs:
+
+```shell
+koyeb completion bash > /usr/local/etc/bash_completion.d/koyeb
+```
+
+You will need to start a new shell for this setup to take effect.
+
+#### Zsh
+
+If shell completion is not already enabled in your environment you will need to enable it.  You can execute the following once:
+
+```shell
+echo "autoload -U compinit; compinit" >> ~/.zshrc
+```
+
+To automatically load completions for all your shell session, execute once:
+
+```shell
+koyeb completion zsh > "${fpath[1]}/_koyeb"
+```
+
+You will need to start a new shell for this setup to take effect.
+
+#### Fish
+
+You can easily run `koyeb completion fish | source` to add completions to your current Fish session.
+
+To automatically load completions for all your shell session, execute once:
+
+```shell
+koyeb completion fish > ~/.config/fish/completions/koyeb.fish
+```
+
+## Contribute
+
+Checkout [CONTRIBUTING.md](CONTRIBUTING.md)
+

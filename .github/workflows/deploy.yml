@@ -1,0 +1,23 @@
+name: Deploy to Koyeb
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Koyeb CLI
+        run: |
+          curl -fsSL https://github.com/koyeb/koyeb-cli/releases/latest/download/koyeb_linux_amd64.tar.gz | tar -xz
+          sudo mv koyeb /usr/local/bin/
+      
+      - name: Deploy to Koyeb
+        env:
+          KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
+        run: |
+          koyeb service redeploy textile/textile --token $KOYEB_TOKEN
