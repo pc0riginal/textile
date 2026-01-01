@@ -13,7 +13,7 @@ jobs:
       
       - name: Install Koyeb CLI
         run: |
-          curl -fsSL https://github.com/koyeb/koyeb-cli/releases/latest/download/koyeb_linux_amd64.tar.gz | tar -xz
+          curl -fsSL https://github.com/koyeb/koyeb-cli/releases/download/v4.4.0/koyeb_4.4.0_linux_amd64.tar.gz | tar -xz
           sudo mv koyeb /usr/local/bin/
       
       - name: Deploy to Koyeb
