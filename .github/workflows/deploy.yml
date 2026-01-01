@@ -24,4 +24,4 @@ jobs:
           token: $KOYEB_TOKEN
           url: https://app.koyeb.com
           EOF
-          /home/runner/.koyeb/bin/koyeb service redeploy representative-ambur/textile
+          /home/runner/.koyeb/bin/koyeb service redeploy representative-ambur/textile --skip-cache
