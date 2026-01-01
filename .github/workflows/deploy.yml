@@ -18,5 +18,5 @@ jobs:
         env:
           KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
         run: |
-          export KOYEB_TOKEN="$KOYEB_TOKEN"
+          echo "token: $KOYEB_TOKEN" > ~/.koyeb.yaml
           /home/runner/.koyeb/bin/koyeb service redeploy textile/textile
