@@ -1,0 +1,166 @@
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
+    <!-- Header -->
+    <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
+        <h2 class="text-lg font-semibold text-gray-900">Report Preview</h2>
+    </div>
+
+    <!-- Report Info -->
+    <div class="p-4 border-b border-gray-200 bg-gray-50">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div>
+                <span class="font-medium text-gray-700">Company:</span>
+                <span class="text-gray-900">{{ current_company.name }}</span>
+            </div>
+            <div>
+                <span class="font-medium text-gray-700">Supplier:</span>
+                <span class="text-gray-900">{{ supplier_name }}</span>
+            </div>
+            <div>
+                <span class="font-medium text-gray-700">Quality:</span>
+                <span class="text-gray-900">{{ quality }}</span>
+            </div>
+            <div>
+                <span class="font-medium text-gray-700">Period:</span>
+                <span class="text-gray-900">{{ fromDate or 'All' }} to {{ toDate or 'All' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Table -->
+    <!-- Mobile View -->
+    <div class="md:hidden divide-y">
+        {% for challan in challans %}
+        <div class="p-4 space-y-3">
+            <div class="flex justify-between items-start">
+                <div>
+                    <div class="text-sm font-semibold text-blue-600">{{ challan.get('invoice_no', '') }}</div>
+                    <p class="text-xs text-gray-500">{{ challan.challan_date.strftime('%d-%m-%Y') if challan.get('challan_date') else '' }}</p>
+                </div>
+                <span class="px-2 py-1 text-xs rounded {% if challan.get('outstanding', 0) == 0 %}bg-green-100 text-green-700{% elif challan.get('total_paid', 0) > 0 %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">
+                    {% if challan.get('outstanding', 0) == 0 %}Paid{% elif challan.get('total_paid', 0) > 0 %}Partial{% else %}Unpaid{% endif %}
+                </span>
+            </div>
+            <div class="text-xs space-y-1">
+                <div><span class="text-gray-600">Supplier:</span> <span class="font-medium">{{ challan.get('supplier_name', '') }}</span></div>
+                <div><span class="text-gray-600">Broker:</span> {{ challan.get('broker_name', '-') }}</div>
+                <div><span class="text-gray-600">Payment Mode:</span> {{ challan.get('payment_mode', '-') }}</div>
+            </div>
+            {% for item in challan.get('items', []) %}
+            <div class="bg-gray-50 p-2 rounded text-xs space-y-1">
+                <div class="font-medium">{{ item.get('quality', '') }}</div>
+                <div class="grid grid-cols-2 gap-1">
+                    <div><span class="text-gray-600">HSN:</span> {{ item.get('hsn', '') }}</div>
+                    <div><span class="text-gray-600">Qty:</span> {{ item.get('quantity', 0) }} {{ item.get('unit', '') }}</div>
+                    <div><span class="text-gray-600">Rate:</span> ₹{{ "{:,.2f}".format(item.get('rate', 0)) }}</div>
+                    <div><span class="text-gray-600">Amount:</span> ₹{{ "{:,.2f}".format(item.get('amount', 0)) }}</div>
+                </div>
+            </div>
+            {% endfor %}
+            <div class="text-xs space-y-1">
+                <div class="grid grid-cols-2 gap-1">
+                    <div><span class="text-gray-600">CGST:</span> ₹{{ "{:,.2f}".format(challan.get('cgst', 0)) }}</div>
+                    <div><span class="text-gray-600">SGST:</span> ₹{{ "{:,.2f}".format(challan.get('sgst', 0)) }}</div>
+                </div>
+            </div>
+            <div class="border-t pt-2 space-y-1 text-xs">
+                <div class="flex justify-between"><span class="text-gray-600">Total:</span> <span class="font-semibold">₹{{ "{:,.2f}".format(challan.get('total_amount', 0)) }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600">Paid:</span> <span class="text-green-600">₹{{ "{:,.2f}".format(challan.get('total_paid', 0)) }}</span></div>
+                <div class="flex justify-between"><span class="text-gray-600">Outstanding:</span> <span class="text-red-600 font-semibold">₹{{ "{:,.2f}".format(challan.get('outstanding', 0)) }}</span></div>
+            </div>
+        </div>
+        {% endfor %}
+        {% if challans %}
+        <div class="p-4 bg-gray-100 border-t-2 space-y-2 text-sm font-semibold">
+            <div class="text-center text-gray-700 mb-2">Grand Total</div>
+            <div class="flex justify-between"><span>Total:</span> <span>₹{{ "{:,.2f}".format(challans | sum(attribute='total_amount', start=0)) }}</span></div>
+            <div class="flex justify-between text-green-600"><span>Paid:</span> <span>₹{{ "{:,.2f}".format(challans | sum(attribute='total_paid', start=0)) }}</span></div>
+            <div class="flex justify-between text-red-600"><span>Outstanding:</span> <span>₹{{ "{:,.2f}".format(challans | sum(attribute='outstanding', start=0)) }}</span></div>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-gray-500 text-sm">No records found</div>
+        {% endif %}
+    </div>
+    <!-- Desktop View -->
+    <div class="hidden md:block overflow-x-auto">
+        <table class="w-full text-xs">
+            <thead class="bg-gray-100 border-b border-gray-200">
+                <tr>
+                    <th class="px-2 py-2 text-left font-medium text-gray-700">Invoice No</th>
+                    <th class="px-2 py-2 text-left font-medium text-gray-700">Date</th>
+                    <th class="px-2 py-2 text-left font-medium text-gray-700">Supplier</th>
+                    <th class="px-2 py-2 text-left font-medium text-gray-700">Broker</th>
+                    <th class="px-2 py-2 text-left font-medium text-gray-700">Quality</th>
+                    <th class="px-2 py-2 text-left font-medium text-gray-700">HSN</th>
+                    <th class="px-2 py-2 text-right font-medium text-gray-700">Qty</th>
+                    <th class="px-2 py-2 text-right font-medium text-gray-700">Rate</th>
+                    <th class="px-2 py-2 text-right font-medium text-gray-700">Amount</th>
+                    <th class="px-2 py-2 text-right font-medium text-gray-700">CGST</th>
+                    <th class="px-2 py-2 text-right font-medium text-gray-700">SGST</th>
+                    <th class="px-2 py-2 text-right font-medium text-gray-700">Total</th>
+                    <th class="px-2 py-2 text-right font-medium text-gray-700">Paid</th>
+                    <th class="px-2 py-2 text-right font-medium text-gray-700">Outstanding</th>
+                    <th class="px-2 py-2 text-left font-medium text-gray-700">Payment Mode</th>
+                    <th class="px-2 py-2 text-center font-medium text-gray-700">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for challan in challans %}
+                    {% set item_count = challan.get('items', []) | length %}
+                    {% for item in challan.get('items', []) %}
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        {% if loop.first %}
+                        <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.get('invoice_no', '') }}</td>
+                        <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.challan_date.strftime('%d-%m-%Y') if challan.get('challan_date') else '' }}</td>
+                        <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.get('supplier_name', '') }}</td>
+                        <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.get('broker_name', '-') }}</td>
+                        {% endif %}
+                        <td class="px-2 py-2">{{ item.get('quality', '') }}</td>
+                        <td class="px-2 py-2">{{ item.get('hsn', '') }}</td>
+                        <td class="px-2 py-2 text-right">{{ item.get('quantity', 0) }} {{ item.get('unit', '') }}</td>
+                        <td class="px-2 py-2 text-right">₹{{ "{:,.2f}".format(item.get('rate', 0)) }}</td>
+                        <td class="px-2 py-2 text-right">₹{{ "{:,.2f}".format(item.get('amount', 0)) }}</td>
+                        {% if loop.first %}
+                        <td class="px-2 py-2 text-right" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('cgst', 0)) }}</td>
+                        <td class="px-2 py-2 text-right" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('sgst', 0)) }}</td>
+                        <td class="px-2 py-2 text-right font-semibold" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('total_amount', 0)) }}</td>
+                        <td class="px-2 py-2 text-right text-green-600" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('total_paid', 0)) }}</td>
+                        <td class="px-2 py-2 text-right text-red-600" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('outstanding', 0)) }}</td>
+                        <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.get('payment_mode', '-') }}</td>
+                        <td class="px-2 py-2 text-center" rowspan="{{ item_count }}">
+                            {% if challan.get('outstanding', 0) == 0 %}
+                            <span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">Paid</span>
+                            {% elif challan.get('total_paid', 0) > 0 %}
+                            <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded">Partial</span>
+                            {% else %}
+                            <span class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded">Unpaid</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="15" class="px-4 py-8 text-center text-gray-500">No records found</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            {% if challans %}
+            <tfoot class="bg-gray-100 border-t-2 border-gray-300">
+                <tr>
+                    <td colspan="11" class="px-2 py-2 text-right font-semibold">Grand Total:</td>
+                    <td class="px-2 py-2 text-right font-semibold">
+                        ₹{{ "{:,.2f}".format(challans | sum(attribute='total_amount', start=0)) }}
+                    </td>
+                    <td class="px-2 py-2 text-right font-semibold text-green-600">
+                        ₹{{ "{:,.2f}".format(challans | sum(attribute='total_paid', start=0)) }}
+                    </td>
+                    <td class="px-2 py-2 text-right font-semibold text-red-600">
+                        ₹{{ "{:,.2f}".format(challans | sum(attribute='outstanding', start=0)) }}
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>

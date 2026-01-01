@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company.name }} - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4 md:space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">{{ company.name }}</h1>
+            <p class="text-sm md:text-base text-gray-600">Company Details</p>
+        </div>
+        <a href="/companies/{{ company._id }}/edit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm md:text-base text-center">Edit Company</a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 space-y-6">
+        <div>
+            <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3">Basic Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><span class="text-sm text-gray-500">GSTIN:</span> <span class="text-sm font-medium">{{ company.gstin or 'N/A' }}</span></div>
+                <div><span class="text-sm text-gray-500">PAN:</span> <span class="text-sm font-medium">{{ company.pan or 'N/A' }}</span></div>
+                <div><span class="text-sm text-gray-500">Financial Year:</span> <span class="text-sm font-medium">{{ company.financial_year }}</span></div>
+            </div>
+        </div>
+
+        <div>
+            <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3">Address</h3>
+            <p class="text-sm text-gray-700">
+                {{ company.address.line1 }}<br>
+                {% if company.address.line2 %}{{ company.address.line2 }}<br>{% endif %}
+                {{ company.address.city or '' }}, {{ company.address.state or '' }} - {{ company.address.pincode or '' }}
+            </p>
+        </div>
+
+        <div>
+            <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3">Contact</h3>
+            <div class="space-y-2 text-sm">
+                <div><span class="text-gray-500">Phone:</span> <span class="font-medium">{{ company.contact.phone }}</span></div>
+                {% if company.contact.email %}<div><span class="text-gray-500">Email:</span> <span class="font-medium">{{ company.contact.email }}</span></div>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

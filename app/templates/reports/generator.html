@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Report Generator - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-2 md:px-0" id="report-page">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200" id="form-card">
+        <!-- Header -->
+        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
+            <h2 class="text-lg font-semibold text-gray-900">Report Generator</h2>
+        </div>
+
+        <!-- Form -->
+        <form x-data="reportForm()" @submit.prevent="handleSubmit" class="p-3 md:p-4 space-y-3 md:space-y-4">
+            <!-- Company (Auto-populated) -->
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Company</label>
+                <input type="text" value="{{ current_company.name }}" readonly class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded bg-gray-50 cursor-not-allowed">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Supplier Selection -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Select Supplier</label>
+                    <select x-model="formData.supplier" @change="onSupplierChange" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Select Supplier --</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier._id }}" data-broker="{{ supplier.broker_id if supplier.broker_id else '' }}">{{ supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Broker Selection (Auto-populated) -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Broker</label>
+                    <input type="text" x-model="formData.brokerName" readonly class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded bg-gray-50" placeholder="Auto-populated">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Quality Selection -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Select Quality</label>
+                    <select x-model="formData.quality" class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Select Quality --</option>
+                        {% for quality in qualities %}
+                        <option value="{{ quality.name }}">{{ quality.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Date Range -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+                        <input type="date" x-model="formData.fromDate" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+                        <input type="date" x-model="formData.toDate" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Options -->
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-2">Filter Options</label>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" x-model="formData.filter" value="all" class="w-3.5 h-3.5 text-blue-600">
+                        <span class="text-xs text-gray-700">All</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" x-model="formData.filter" value="dues" class="w-3.5 h-3.5 text-blue-600">
+                        <span class="text-xs text-gray-700">Only Dues</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" x-model="formData.filter" value="received" class="w-3.5 h-3.5 text-blue-600">
+                        <span class="text-xs text-gray-700">Only Received</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" x-model="formData.filter" value="full_paid_book_rr" class="w-3.5 h-3.5 text-blue-600">
+                        <span class="text-xs text-gray-700">Full Paid (Book & RR)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" x-model="formData.filter" value="full_paid_book" class="w-3.5 h-3.5 text-blue-600">
+                        <span class="text-xs text-gray-700">Full Paid (Book)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" x-model="formData.filter" value="full_paid_rr" class="w-3.5 h-3.5 text-blue-600">
+                        <span class="text-xs text-gray-700">Full Paid (RR)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
+                <button type="button" @click="preview" class="px-4 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                    Preview
+                </button>
+                <button type="button" @click="exportPDF" class="px-4 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                    PDF Export
+                </button>
+                <button type="button" @click="exit" class="px-4 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
+                    Exit
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function reportForm() {
+    const suppliers = {{ suppliers | tojson }};
+    
+    return {
+        formData: {
+            supplier: '',
+            broker: '',
+            brokerName: '',
+            quality: '',
+            fromDate: '',
+            toDate: '',
+            filter: 'all'
+        },
+        onSupplierChange(event) {
+            const supplierId = this.formData.supplier;
+            if (supplierId) {
+                const supplier = suppliers.find(s => s._id.$oid === supplierId || s._id === supplierId);
+                if (supplier && supplier.broker_id) {
+                    fetch(`/parties/${supplier.broker_id}`)
+                        .then(r => r.json())
+                        .then(broker => {
+                            this.formData.broker = broker._id;
+                            this.formData.brokerName = broker.name;
+                        })
+                        .catch(() => {
+                            this.formData.broker = '';
+                            this.formData.brokerName = '';
+                        });
+                } else {
+                    this.formData.broker = '';
+                    this.formData.brokerName = '';
+                }
+            } else {
+                this.formData.broker = '';
+                this.formData.brokerName = '';
+            }
+        },
+        preview() {
+            const params = new URLSearchParams();
+            if (this.formData.supplier) params.append('supplier', this.formData.supplier);
+            if (this.formData.quality) params.append('quality', this.formData.quality);
+            if (this.formData.fromDate) params.append('fromDate', this.formData.fromDate);
+            if (this.formData.toDate) params.append('toDate', this.formData.toDate);
+            params.append('filter', this.formData.filter);
+            
+            fetch(`/reports/preview-inline?${params.toString()}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.text();
+                })
+                .then(html => {
+                    let previewContainer = document.getElementById('preview-container');
+                    if (!previewContainer) {
+                        previewContainer = document.createElement('div');
+                        previewContainer.id = 'preview-container';
+                        document.getElementById('report-page').appendChild(previewContainer);
+                    }
+                    previewContainer.innerHTML = html;
+                    setTimeout(() => {
+                        previewContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading preview: ' + error.message);
+                });
+        },
+        print() {
+            const params = new URLSearchParams(this.formData);
+            window.open(`/reports/preview?${params.toString()}`, '_blank');
+        },
+        exportPDF() {
+            const params = new URLSearchParams();
+            if (this.formData.supplier) params.append('supplier', this.formData.supplier);
+            if (this.formData.quality) params.append('quality', this.formData.quality);
+            if (this.formData.fromDate) params.append('fromDate', this.formData.fromDate);
+            if (this.formData.toDate) params.append('toDate', this.formData.toDate);
+            params.append('filter', this.formData.filter);
+            params.append('pdf', '1');
+            window.open(`/reports/preview?${params.toString()}`, '_blank');
+        },
+        exit() {
+            window.location.href = '/dashboard';
+        }
+    }
+}
+</script>
+{% endblock %}

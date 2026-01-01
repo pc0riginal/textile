@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Payments - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Payments</h1>
+            <p class="text-gray-600">Manage receipts and payments</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="/payments/sales-receipt/create" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm text-center">
+                Sales Receipt
+            </a>
+            <a href="/payments/receipt/create" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm text-center">
+                Purchase Payment
+            </a>
+        </div>
+    </div>
+
+    <!-- Sales Receipts Section -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="bg-green-50 px-6 py-3 border-b">
+            <h2 class="text-lg font-semibold text-green-800">Sales Receipts (Money Received)</h2>
+        </div>
+        {% if sales_receipts %}
+        <!-- Mobile View -->
+        <div class="md:hidden divide-y">
+            {% for payment in sales_receipts %}
+            <div class="p-4 space-y-3">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <a href="/payments/{{ payment._id }}" class="text-sm font-semibold text-blue-600 hover:underline">{{ payment.payment_no }}</a>
+                        <p class="text-xs text-gray-500">{{ payment.payment_date.strftime('%d-%m-%Y') }}</p>
+                    </div>
+                    <form method="POST" action="/payments/{{ payment._id }}/delete" onsubmit="return confirm('Delete this payment?');" class="inline">
+                        <button type="submit" class="text-red-600 hover:text-red-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </form>
+                </div>
+                <div class="text-xs space-y-1">
+                    <div><span class="text-gray-600">Party:</span> <span class="font-medium">{{ payment.party_name or payment.supplier_name }}</span></div>
+                    <div><span class="text-gray-600">Invoices:</span> {{ payment.invoices|length }} invoice(s)</div>
+                    <div><span class="text-gray-600">Amount:</span> <span class="font-semibold text-green-600">₹{{ "{:,.2f}".format(payment.cheque_amount or 0) }}</span></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <!-- Desktop View -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Receipt No</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoices</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for payment in sales_receipts %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                            <a href="/payments/{{ payment._id }}" class="hover:underline">{{ payment.payment_no }}</a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ payment.payment_date.strftime('%d-%m-%Y') }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ payment.party_name or payment.supplier_name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ payment.invoices|length }} invoice(s)</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">₹{{ "{:,.2f}".format(payment.cheque_amount or 0) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <form method="POST" action="/payments/{{ payment._id }}/delete" onsubmit="return confirm('Delete this payment?');" class="inline">
+                                <button type="submit" class="text-red-600 hover:text-red-800">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <p class="text-sm text-gray-500">No sales receipts found</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Purchase Payments Section -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="bg-blue-50 px-6 py-3 border-b">
+            <h2 class="text-lg font-semibold text-blue-800">Purchase Payments (Money Paid)</h2>
+        </div>
+        {% if purchase_payments %}
+        <!-- Mobile View -->
+        <div class="md:hidden divide-y">
+            {% for payment in purchase_payments %}
+            <div class="p-4 space-y-3">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <a href="/payments/{{ payment._id }}" class="text-sm font-semibold text-blue-600 hover:underline">{{ payment.payment_no }}</a>
+                        <p class="text-xs text-gray-500">{{ payment.payment_date.strftime('%d-%m-%Y') }}</p>
+                    </div>
+                    <form method="POST" action="/payments/{{ payment._id }}/delete" onsubmit="return confirm('Delete this payment?');" class="inline">
+                        <button type="submit" class="text-red-600 hover:text-red-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </form>
+                </div>
+                <div class="text-xs space-y-1">
+                    <div><span class="text-gray-600">Supplier:</span> <span class="font-medium">{{ payment.supplier_name }}</span></div>
+                    <div><span class="text-gray-600">Challans:</span> {{ payment.invoices|length }} challan(s)</div>
+                    <div><span class="text-gray-600">Amount:</span> <span class="font-semibold text-red-600">₹{{ "{:,.2f}".format(payment.cheque_amount or payment.amount or 0) }}</span></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <!-- Desktop View -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment No</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Challans</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for payment in purchase_payments %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                            <a href="/payments/{{ payment._id }}" class="hover:underline">{{ payment.payment_no }}</a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ payment.payment_date.strftime('%d-%m-%Y') }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ payment.supplier_name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">{{ payment.invoices|length }} challan(s)</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">₹{{ "{:,.2f}".format(payment.cheque_amount or payment.amount or 0) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <form method="POST" action="/payments/{{ payment._id }}/delete" onsubmit="return confirm('Delete this payment?');" class="inline">
+                                <button type="submit" class="text-red-600 hover:text-red-800">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <p class="text-sm text-gray-500">No purchase payments found</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

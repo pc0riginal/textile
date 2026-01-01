@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4 md:space-y-6">
+    <div>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900">Profile</h1>
+        <p class="text-sm md:text-base text-gray-600">Manage your account information</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
+        <div class="flex items-center space-x-4 mb-6">
+            <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
+                <span class="text-white text-2xl font-medium">{{ current_user.full_name[0] }}</span>
+            </div>
+            <div>
+                <h2 class="text-lg font-medium text-gray-900">{{ current_user.full_name }}</h2>
+                <p class="text-sm text-gray-500">{{ current_user.username }}</p>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                <p class="mt-1 text-gray-900">{{ current_user.full_name }}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Username</label>
+                <p class="mt-1 text-gray-900">{{ current_user.username }}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Role</label>
+                <p class="mt-1 text-gray-900">{{ current_user.role.title() }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

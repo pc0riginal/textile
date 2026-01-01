@@ -1,0 +1,440 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <title>Invoice {{ invoice.get('invoice_no', '253') }}</title>
+    <style type="text/css">
+        body,
+        div,
+        table,
+        thead,
+        tbody,
+        tfoot,
+        tr,
+        th,
+        td,
+        p {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+        }
+
+        table {
+            border-collapse: collapse;
+        }
+
+        .print-btn {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+            font-size: 14px;
+        }
+
+        @media print {
+            .print-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <button class="print-btn" onclick="window.print()">Print Invoice</button>
+
+    <table cellspacing="0" border="0">
+        <colgroup width="31"></colgroup>
+        <colgroup width="69"></colgroup>
+        <colgroup width="124"></colgroup>
+        <colgroup width="62"></colgroup>
+        <colgroup width="39"></colgroup>
+        <colgroup width="31"></colgroup>
+        <colgroup width="69"></colgroup>
+        <colgroup width="100"></colgroup>
+        <colgroup width="22"></colgroup>
+        <colgroup width="15"></colgroup>
+        <colgroup width="39"></colgroup>
+        <colgroup width="46"></colgroup>
+        <colgroup width="15"></colgroup>
+        <colgroup width="155"></colgroup>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000;"
+                colspan=3 height="40" align="center" valign=top><b>
+                    <font face="Arial"></font>
+                </b></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000;"
+                colspan=8 height="40" align="center" valign=center><b>
+                    <font face="Arial">|| SHREE GANESHAY NAMAH ||<br>T A X I N V O I C E</font>
+                </b></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=3 align="left" valign=center>
+                <font face="Arial">Original - For Buyer<br>Duplicate - For Assessee</font>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=14 height="92" align="center" valign=center>
+                    <b><font face="Arial" size=6>{{ current_company.get('name', 'SITARAM TEXTILES') }}</font></b><br>
+                    <font face="Arial" size=2>{% if current_company.get('address') is mapping %}{{ current_company.address.get('line1', '') }} {{ current_company.address.get('line2', '') }} {{ current_company.address.get('city', '') }} {{ current_company.address.get('state', '') }} {{ current_company.address.get('pincode', '') }}{% else %}{{ current_company.get('address', 'B 2/10 BHAGAWATI IND SOC.BHESTAN ROAD BHESTAN SURAT') }}{% endif %}<br>Phone : {{ current_company.get('phone', '9228329102') }}</font>
+                </td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000"
+                colspan=8 height="28" align="left" valign=top><b>
+                    <font face="Arial">GSTIN : {{ current_company.get('gstin', '24AXCPP2131Q1ZC') }}</font>
+                </b></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000" align="left" valign=middle><br>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000" colspan=2 align="left"
+                valign=middle><br></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=3 align="left" valign=top><b>
+                    <font face="Arial">PAN : {{ current_company.get('pan', 'AXCPP2131Q') }}</font>
+                </b></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 height="27" align="center" valign=center>
+                <font face="Arial">DETAILS OF RECEIVER - BILLED TO</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=6 align="center" valign=center>
+                <font face="Arial">DETAILS OF CONSIGNEE - SHIPPED TO</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="left" valign=middle><br></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 height="23" align="left" valign=top><b>
+                    <font face="Arial">{{ customer.get('name', '') }}</font>
+                </b></td>
+            <td style="border-top: 1px solid #000000; border-left: 1px solid #000000" colspan=4 align="left" valign=top>
+                <b>
+                    <font face="Arial">{{ customer.get('name', '') }}</font>
+                </b></td>
+            <td style="border-top: 1px solid #000000" align="left" valign=bottom><br></td>
+            <td style="border-top: 1px solid #000000; border-right: 1px solid #000000" align="left" valign=bottom><br>
+            </td>
+            <td style="border-top: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="left" valign=top><b>
+                    <font face="Arial">Invoice No. {{ invoice.get('invoice_no', '253') }}</font>
+                </b></td>
+        </tr>
+
+        <tr>
+            <td style="border-left: 1px solid #000000; border-right: 1px solid #000000" colspan=4 height="23"
+                align="left" valign=top>
+                <font face="Arial">{{ customer.get('office_address', '') }} {{ customer.get('office_city', '') }} {{ customer.get('office_state', '') }} {{ customer.get('office_pincode', '') }}</font>
+            </td>
+            <td style="border-left: 1px solid #000000" colspan=4 align="left" valign=top>
+                <font face="Arial">{{ customer.get('delivery_address', '') }} {{ customer.get('delivery_city', '') }} {{ customer.get('delivery_state', '') }} {{ customer.get('delivery_pincode', '') }}</font>
+            </td>
+            <td align="left" valign=bottom><br></td>
+            <td style="border-right: 1px solid #000000" align="left" valign=bottom><br></td>
+            <td style="border-left: 1px solid #000000" colspan=2 align="left" valign=top>
+                <font face="Arial">Date :</font>
+            </td>
+            <td style="border-right: 1px solid #000000" colspan=2 align="left" valign=top><b>
+                    <font face="Arial">{{ invoice.get('invoice_date').strftime('%d-%m-%Y') if
+                        invoice.get('invoice_date') else '20-11-2025' }}</font>
+                </b></td>
+        </tr>
+
+        <tr>
+            <td style="border-left: 1px solid #000000; border-right: 1px solid #000000" colspan=4 height="20"
+                align="left" valign=bottom><br></td>
+            <td style="border-left: 1px solid #000000" colspan=4 align="left" valign=bottom><br></td>
+            <td align="left" valign=bottom><br></td>
+            <td style="border-right: 1px solid #000000" align="left" valign=bottom><br></td>
+            <td style="border-left: 1px solid #000000" colspan=2 align="left" valign=top>
+                <font face="Arial">Challan No.</font>
+            </td>
+            <td style="border-right: 1px solid #000000" colspan=2 align="left" valign=top>
+                <font face="Arial">{{ invoice.get('challan_no', invoice.get('invoice_no', '253')) }}</font>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 height="52" align="left" valign=top>
+                <font face="Arial">State : {{ customer.get('office_state', '') }}<br>GSTIN : {{ customer.get('gstin', '') }}</font>
+            </td>
+            <td style="border-bottom: 1px solid #000000; border-left: 1px solid #000000;"
+                colspan=4 height="52" align="left" valign=top>
+                <font face="Arial">State : {{ customer.get('delivery_state', '') }}<br>GSTIN : {{ customer.get('gstin', '') }}</font>
+            </td>
+            <td style="border-bottom: 1px solid #000000;" align="left" valign=top><br>
+            </td>
+            <td style="border-bottom: 1px solid #000000; border-right: 1px solid #000000" align="left" valign=top><br>
+            </td>
+            <td style="border-bottom: 1px solid #000000; border-left: 1px solid #000000" colspan=2 align="left"
+                valign=top>
+                <font face="Arial">Date :</font>
+            </td>
+            <td style="border-bottom: 1px solid #000000; border-right: 1px solid #000000" colspan=2 align="left"
+                valign=top>
+                <font face="Arial">{{ invoice.get('invoice_date').strftime('%d-%m-%Y') if invoice.get('invoice_date')
+                    else '20-11-2025' }}</font>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000"
+                colspan=6 height="28" align="left" valign=center>
+                <font face="Arial">Transporter : {{ invoice.get('transporter_name', '') }} Vehicle No. {{
+                    invoice.get('vehicle_no', '') }}</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000" align="left" valign=middle><br>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; "
+                colspan=4 align="left" valign=middle><br></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000" colspan=1 align="right"
+                valign=top>
+                <font face="Arial"></font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-right: 1px solid #000000" colspan=2 align="right"
+                valign=center>
+                <font face="Arial">Broker :{{ invoice.get('broker_name', 'NONE') }}</font>
+            </td>
+            
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                height="24" align="center" valign=center>
+                <font face="Arial">Sr.</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=center>
+                <font face="Arial">Description</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=center>
+                <font face="Arial">HSN Code</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=center>
+                <font face="Arial">Total Taka</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=center>
+                <font face="Arial">Meters</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="center" valign=center>
+                <font face="Arial">Basic Rate</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                align="center" valign=center>
+                <font face="Arial">Total Amount</font>
+            </td>
+        </tr>
+
+        {% for item in invoice.get('items', []) %}
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                height="20" align="center" valign=middle>
+                <font face="Arial">{{ loop.index }}</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=middle>
+                <font face="Arial">{{ item.get('quality', item.get('description', 'DUPATTA')) }}</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=middle>
+                <font face="Arial">{{ item.get('hsn_code', '5407') }}</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=middle>
+                <font face="Arial">{{ item.get('total_taka', item.get('boxes', 16)) }}</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=middle>
+                <font face="Arial">{{ "%.2f"|format(item.get('meters', 1600.00)|float) }}</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="center" valign=middle>
+                <font face="Arial">{{ "%.2f"|format(item.get('rate_per_meter', 10.00)|float) }}</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                align="right" valign=middle>
+                <font face="Arial">{{ "%.2f"|format(item.get('taxable_amount', 16000.00)|float) }}</font>
+            </td>
+        </tr>
+        {% endfor %}
+        {% for i in range(5 - invoice.get('items', [])|length if invoice.get('items', [])|length < 5 else 0) %}
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                height="20" align="center" valign=middle><br></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=middle><br></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=middle><br></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=middle><br></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=2 align="center" valign=middle><br></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="center" valign=middle><br></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                align="right" valign=middle><br></td>
+        </tr>
+        {% endfor %}
+        
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=7 align="center" valign=center>
+                <div><b><font face="Arial">-: BANK DETAILS :-</font></b></div>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=7 align="left" valign=top>
+            </td>
+        </tr>
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=7 align="left" valign=top>
+                
+                {% for bank in bank_accounts %}
+                <div><b><font face="Arial">Bank : {{ bank.get('bank_name', '') }}</font></b></div>
+                <div><b><font face="Arial">A/c No. {{ bank.get('account_number', '') }}</font></b></div>
+                <div><b><font face="Arial">IFSC : {{ bank.get('ifsc_code', '') }}</font></b></div>
+                <div><b><font face="Arial">Branch : {{ bank.get('branch', '') }}</font></b></div>
+                {% endfor %}
+            </td>
+            <td style="border-top: 1px solid #000000;border-right: 1px solid #000000"
+                colspan=7 align="left" valign=bottom>
+                <div style="border-bottom: 1px solid #000000; padding: 2px;"><br></div>
+                <div style="border-bottom: 1px solid #000000; padding: 2px;"><br></div>
+                <div style="border-bottom: 1px solid #000000; padding: 2px;"><br></div>
+                <div style="border-bottom: 1px solid #000000; padding: 2px;"><br></div>
+                <div style="border-bottom: 1px solid #000000; padding: 2px; display: flex; justify-content: space-between;"><span><font face="Arial">Total Amount Before Tax</font></span><span><font face="Arial">{{ "%.2f"|format(total_taxable) }}</font></span></div>
+                <div style="border-bottom: 1px solid #000000; padding: 2px; display: flex; justify-content: space-between;"><span><font face="Arial">Add: CGST {{ "%.2f"|format(cgst_percent) }} %</font></span><span><font face="Arial">{{ "%.2f"|format(total_cgst) }}</font></span></div>
+                <div style="border-bottom: 1px solid #000000; padding: 2px; display: flex; justify-content: space-between;"><span><font face="Arial">Add: SGST {{ "%.2f"|format(sgst_percent) }} %</font></span><span><font face="Arial">{{ "%.2f"|format(total_sgst) }}</font></span></div>
+                <div style="border-bottom: 1px solid #000000; padding: 2px; display: flex; justify-content: space-between;"><span><font face="Arial">Add: IGST {{ "%.2f"|format(igst_percent) }} %</font></span><span><font face="Arial">{{ "%.2f"|format(total_igst) }}</font></span></div>
+                <div style="padding: 2px; display: flex; justify-content: space-between;"><span><font face="Arial">Sub Total</font></span><span><font face="Arial">{{ "%.2f"|format(invoice.get('total_amount', 16800.00)) }}</font></span></div>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=7 height="21" align="left" valign=top><b>
+                    <font face="Arial">Due Date : {{ invoice.get('due_date').strftime('%d-%m-%Y') if invoice.get('due_date') else '20-11-2025' }} Due Days : {{ invoice.get('due_days', 0) }}</font>
+                </b></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=7 align="left" valign=top><br></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=7 height="24" align="left" valign=top><b>
+                    <font face="Arial">NET RATE : {{ "%.2f"|format(net_rate) }}</font>
+                </b></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=6 align="left" valign=top>
+                <font face="Arial">Total Amount</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                align="right" valign=top><b>
+                    <font face="Arial">{{ "%.2f"|format(invoice.get('total_amount', 16800.00)) }}</font>
+                </b></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=14 height="22" align="left" valign=top>
+                <font face="Georgia" size=3>` {{ amount_in_words }}</font>
+            </td>
+        </tr>
+
+        
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=5 height="31" align="left" valign=top><b>
+                    <font face="Courier New">Received / Paid Details</font>
+                </b></td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=9 rowspan=6 align="right" valign=top><b>
+                    <font face="Arial">FOR {{ current_company.get('name', 'SITARAM TEXTILES') }}<br><br><br><br><br><br><br><br><br>Proprietor/Authorized Person</font>
+                </b></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                height="22" align="left" valign=top>
+                <font face="Courier New">Bill No.</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="left" valign=bottom><br></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                height="22" align="left" valign=top>
+                <font face="Courier New">Amount</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="left" valign=bottom><br></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                height="22" align="left" valign=top>
+                <font face="Courier New">Ch.No.</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="left" valign=bottom><br></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                height="22" align="left" valign=top>
+                <font face="Courier New">Bank</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="left" valign=bottom><br></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                height="22" align="left" valign=top>
+                <font face="Courier New">Date</font>
+            </td>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=4 align="left" valign=bottom><br></td>
+        </tr>
+
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=14 height="20" align="center" valign=middle>
+                <font face="Arial">NO DYEING GUARANTEE</font>
+            </td>
+        </tr>
+        <tr>
+            <td style="border-top: 1px solid #000000; border-bottom: 1px solid #000000; border-left: 1px solid #000000; border-right: 1px solid #000000"
+                colspan=14 height="96" align="left" valign=top>
+                <font face="Arial">TERMS OF SALE :<br>1) Payment to be made by A/c. payee's cheque/draft only. (2) Any
+                    complaint for the goods should be made within 2 days after that no complaint will be entertained.
+                    (3) Interest @ 24% per annum will be charged after due date of the bill. (4) We are not responsible
+                    for any loss or damage during transit. (5) We reserve the right of recovery at any time before due
+                    date. (6) Goods once sold will not be taken back. (7) Do not mix types of lots. (8) Subject to SURAT
+                    Jurisdiction.</font>
+            </td>
+        </tr>
+    </table>
+
+</body>
+
+</html>

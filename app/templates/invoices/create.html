@@ -1,0 +1,815 @@
+{% extends "base.html" %}
+
+{% block title %}Sales Invoice - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-3 px-2 md:px-4" x-data="invoiceForm()">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+        <div>
+            <h1 class="text-lg md:text-xl font-bold text-gray-900">Sales Invoice</h1>
+            <p class="text-xs text-gray-600">Create new sales invoice</p>
+        </div>
+        <div class="flex flex-wrap gap-1.5 md:gap-2">
+            <button type="button" @click="resetForm" class="px-2 md:px-3 py-1.5 text-xs bg-gray-100 rounded hover:bg-gray-200">Add New</button>
+            <button type="button" onclick="window.print()" class="px-2 md:px-3 py-1.5 text-xs bg-gray-100 rounded hover:bg-gray-200 hidden md:inline-block">Print</button>
+            <a href="/invoices/report" class="px-2 md:px-3 py-1.5 text-xs bg-gray-100 rounded hover:bg-gray-200">Report</a>
+            <a href="/invoices" class="px-2 md:px-3 py-1.5 text-xs bg-gray-100 rounded hover:bg-gray-200">Exit</a>
+        </div>
+    </div>
+
+    <form method="POST" action="/invoices/create" @submit="validateForm" class="bg-white rounded-lg shadow-sm border p-3 md:p-4">
+        <div class="space-y-3 md:space-y-4">
+            <!-- TOP SECTION: Basic Details -->
+            <div>
+                <h3 class="font-semibold text-gray-900 border-b pb-2 text-sm mb-2">Sales Invoice Details</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Company</label>
+                        <input type="text" value="{{ current_company.name }}" readonly class="w-full px-2 py-1.5 text-xs border rounded bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Invoice No. *</label>
+                        <input type="number" name="invoice_no" value="{{ next_invoice_no }}" required class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Date *</label>
+                        <input type="date" name="invoice_date" :value="new Date().toISOString().split('T')[0]" required class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- CUSTOMER & BROKER SECTION -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+                <div>
+                    <h3 class="font-semibold text-gray-900 border-b pb-2 text-sm mb-2">Customer</h3>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Select Party *</label>
+                            <input type="hidden" name="customer_id" x-model="customerId" required>
+                            <div class="relative">
+                                <input type="text" x-ref="partyInput" x-model="partySearch" @input="filterParties" @focus="showPartyDropdown = true; filterParties()" @click="showPartyDropdown = true; filterParties()" @blur="setTimeout(() => showPartyDropdown = false, 200)" @keydown="handlePartyKeydown($event)" placeholder="Search customer..." class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                                <div x-show="showPartyDropdown && (filteredParties.length > 0 || partySearch.length >= 0)" class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-60 overflow-auto">
+                                    <template x-for="(p, idx) in filteredParties" :key="p.id">
+                                        <div @mousedown.prevent @click="selectParty(p)" :class="idx === partySelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-xs" x-text="p.name"></div>
+                                    </template>
+                                    <div @mousedown.prevent @click="openPartyModal" :class="filteredParties.length === partySelectedIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-xs text-green-600 font-medium border-t">+ Add New Customer</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Address</label>
+                            <textarea x-model="customerAddress" readonly rows="2" class="w-full px-2 py-1.5 text-xs border rounded bg-gray-50"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900 border-b pb-2 text-sm mb-2">Broker & Transport</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Broker</label>
+                            <input type="text" name="broker_name" x-model="brokerName" readonly class="w-full px-2 py-1.5 text-xs border rounded bg-gray-50">
+                            <input type="hidden" name="broker_id" x-model="brokerId">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Delivery</label>
+                            <input type="text" name="delivery" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Transporter</label>
+                            <select name="transporter" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Vehicle No.</label>
+                            <input type="text" name="vehicle_no" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAYMENT SECTION -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Due Days</label>
+                    <input type="number" name="due_days" x-model="dueDays" @input="calculateDueDate" value="0" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Due Date</label>
+                    <input type="date" name="due_date" x-model="dueDate" readonly class="w-full px-2 py-1.5 text-xs border rounded bg-gray-50">
+                </div>
+            </div>
+
+            <!-- ADD ITEM SECTION -->
+            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-2 md:p-3">
+                <h3 class="font-semibold text-gray-900 mb-2 text-sm">➕ Add Item</h3>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Quality *</label>
+                        <div class="relative">
+                            <input type="text" x-ref="qualityInput" x-model="qualitySearch" @input="filterQualities" @focus="showQualityDropdown = true; filterQualities()" @click="showQualityDropdown = true; filterQualities()" @blur="setTimeout(() => showQualityDropdown = false, 200)" @keydown="handleQualityKeydown($event)" placeholder="Search..." class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                            <div x-show="showQualityDropdown && (filteredQualities.length > 0 || qualitySearch.length >= 0)" class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-40 overflow-auto">
+                                <template x-for="(q, idx) in filteredQualities" :key="q">
+                                    <div @mousedown.prevent @click="currentItem.quality = q; qualitySearch = q; showQualityDropdown = false; $refs.takaInput.focus()" :class="idx === qualitySelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-xs" x-text="q"></div>
+                                </template>
+                                <div @mousedown.prevent @click="openQualityModal" :class="filteredQualities.length === qualitySelectedIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-xs text-green-600 font-medium border-t">+ Add New</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Taka</label>
+                        <input type="number" step="0.01" x-ref="takaInput" x-model="currentItem.total_taka" @keydown.enter.prevent="$refs.metersInput.focus()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Meters *</label>
+                        <input type="number" step="0.01" x-ref="metersInput" x-model="currentItem.meters" @keydown.enter.prevent="$refs.rateInput.focus()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Rate</label>
+                        <input type="number" step="0.01" x-ref="rateInput" x-model="currentItem.rate" @keydown.enter.prevent="addItem()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                    </div>
+                    <div class="col-span-2 md:col-span-1 flex items-end">
+                        <button type="button" @click="addItem" class="w-full px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700">➕ Add</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ITEMS TABLE -->
+            <div x-show="items.length > 0">
+                <h3 class="text-sm font-medium text-gray-900 mb-2">📋 Items (<span x-text="items.length"></span>)</h3>
+                <!-- Mobile Card View -->
+                <div class="md:hidden space-y-2">
+                    <template x-for="(item, idx) in items" :key="idx">
+                        <div class="border rounded p-2 bg-white">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex-1">
+                                    <div class="font-medium text-sm" x-text="item.quality"></div>
+                                    <div class="text-xs text-gray-600">Taka: <span x-text="item.total_taka"></span> | Meters: <span x-text="item.meters.toFixed(2)"></span></div>
+                                </div>
+                                <button type="button" @click="removeItem(idx)" class="text-red-600 hover:text-red-800 text-xl ml-2">×</button>
+                            </div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-600">Rate: <span class="font-medium" x-text="'₹' + item.rate_per_meter.toFixed(2)"></span></span>
+                                <span class="font-bold text-sm" x-text="'₹' + item.amount.toFixed(2)"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <!-- Desktop Table View -->
+                <div class="hidden md:block overflow-x-auto border rounded">
+                    <table class="w-full text-xs">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="border px-2 py-1">#</th>
+                                <th class="border px-2 py-1">Quality</th>
+                                <th class="border px-2 py-1">Taka</th>
+                                <th class="border px-2 py-1">Meters</th>
+                                <th class="border px-2 py-1">Rate</th>
+                                <th class="border px-2 py-1">Amount</th>
+                                <th class="border px-2 py-1">Del</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(item, idx) in items" :key="idx">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="border px-2 py-1 text-center" x-text="idx + 1"></td>
+                                    <td class="border px-2 py-1" x-text="item.quality"></td>
+                                    <td class="border px-2 py-1 text-right" x-text="item.total_taka"></td>
+                                    <td class="border px-2 py-1 text-right" x-text="item.meters.toFixed(2)"></td>
+                                    <td class="border px-2 py-1 text-right" x-text="'₹' + item.rate_per_meter.toFixed(2)"></td>
+                                    <td class="border px-2 py-1 text-right font-medium" x-text="'₹' + item.amount.toFixed(2)"></td>
+                                    <td class="border px-2 py-1 text-center">
+                                        <button type="button" @click="removeItem(idx)" class="text-red-600 hover:text-red-800">×</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TOTALS SECTION -->
+            <div class="bg-gray-50 border rounded p-2 md:p-3">
+                <div class="flex justify-end">
+                    <div class="w-full md:w-80 space-y-2 text-xs md:text-sm">
+                        <div class="flex justify-between"><span>Subtotal:</span><span x-text="'₹' + subtotal.toFixed(2)"></span></div>
+                        <div class="flex justify-between items-center">
+                            <span>GST %:</span>
+                            <input type="number" step="0.01" x-model="gstPercent" @input="calculateTotal" class="w-20 px-2 py-1 text-xs border rounded">
+                        </div>
+                        <div class="flex justify-between"><span>CGST:</span><span x-text="'₹' + cgst.toFixed(2)"></span></div>
+                        <div class="flex justify-between"><span>SGST:</span><span x-text="'₹' + sgst.toFixed(2)"></span></div>
+                        <div class="flex justify-between"><span>IGST:</span><span x-text="'₹' + igst.toFixed(2)"></span></div>
+                        <div class="flex justify-between"><span>Round Off:</span><span x-text="'₹' + roundOff.toFixed(2)"></span></div>
+                        <div class="flex justify-between font-bold text-base border-t pt-2"><span>Total:</span><span x-text="'₹' + totalAmount.toFixed(0)"></span></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-end gap-2 mt-3 md:mt-4 pt-3 md:pt-4 border-t">
+            <button type="submit" class="w-full md:w-auto px-6 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save Invoice</button>
+        </div>
+    </form>
+
+    <!-- Broker Modal -->
+    <div x-show="showBrokerModal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4" style="display: none;" @click.self="showBrokerModal = false">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4">Add New Broker</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Broker Name *</label>
+                    <input type="text" x-model="newBroker.name" class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Mobile Number</label>
+                    <input type="text" x-model="newBroker.phone" maxlength="10" class="w-full px-3 py-2 border rounded-md">
+                </div>
+            </div>
+            <div class="flex gap-3 justify-end mt-6">
+                <button type="button" @click="showBrokerModal = false" class="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
+                <button type="button" @click="saveBroker" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Party Modal -->
+    <div x-show="showPartyModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;" @click.self="showPartyModal = false">
+        <div class="bg-white rounded-lg p-4 w-full max-w-6xl max-h-[95vh] overflow-y-auto">
+            <h3 class="text-base font-bold mb-3">Party Name Form</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- LEFT SIDE: Party Details -->
+                <div>
+                    <h4 class="text-xs font-semibold text-gray-900 mb-2 border-b pb-1">Party Details</h4>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-xs font-medium mb-0.5">Party Name *</label>
+                            <input type="text" x-model="newParty.name" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">Party Type *</label>
+                                <select x-model="newParty.party_type" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                                    <option value="customer">Customer</option>
+                                    <option value="supplier">Supplier</option>
+                                    <option value="both">Both</option>
+                                    <option value="broker">Broker</option>
+                                    <option value="transporter">Transporter</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">Party Code</label>
+                                <input type="text" x-model="newParty.party_code" placeholder="Auto-generated" class="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-50">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-0.5">Delivery Address</label>
+                            <textarea x-model="newParty.delivery_address" rows="1.5" class="w-full px-2 py-1.5 text-xs border rounded-md"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">City</label>
+                                <input type="text" x-model="newParty.delivery_city" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">Pin Code</label>
+                                <input type="text" x-model="newParty.delivery_pincode" maxlength="6" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">State</label>
+                                <select x-model="newParty.delivery_state" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                                    <template x-for="state in indianStates" :key="state">
+                                        <option :value="state" x-text="state"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">GST No.</label>
+                                <input type="text" x-model="newParty.gstin" maxlength="15" placeholder="22AAAAA0000A1Z5" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-0.5">Mobile Number *</label>
+                            <input type="text" x-model="newParty.phone" maxlength="10" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">Broker</label>
+                                <div class="flex gap-1">
+                                    <select x-model="newParty.broker_id" class="flex-1 px-2 py-1.5 text-xs border rounded-md">
+                                        <option value="">NONE</option>
+                                        <template x-for="broker in brokers" :key="broker.id">
+                                            <option :value="broker.id" x-text="broker.name"></option>
+                                        </template>
+                                    </select>
+                                    <button type="button" @click="openBrokerModal" class="px-2 py-1.5 text-xs bg-green-600 text-white rounded-md hover:bg-green-700">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">Brokerage</label>
+                                <input type="number" step="0.01" x-model="newParty.brokerage" :disabled="!newParty.broker_id" class="w-full px-2 py-1.5 text-xs border rounded-md" :class="!newParty.broker_id ? 'bg-gray-100' : ''">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- RIGHT SIDE: Office & Financial -->
+                <div>
+                    <h4 class="text-xs font-semibold text-gray-900 mb-2 border-b pb-1">Office Details</h4>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-xs font-medium mb-0.5">Office Address</label>
+                            <textarea x-model="newParty.office_address" rows="1.5" class="w-full px-2 py-1.5 text-xs border rounded-md"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">City</label>
+                                <input type="text" x-model="newParty.office_city" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">Pin Code</label>
+                                <input type="text" x-model="newParty.office_pincode" maxlength="6" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">State</label>
+                                <select x-model="newParty.office_state" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                                    <template x-for="state in indianStates" :key="state">
+                                        <option :value="state" x-text="state"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">Email</label>
+                                <input type="email" x-model="newParty.email" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                            </div>
+                        </div>
+                    </div>
+                    <h4 class="text-xs font-semibold text-gray-900 mb-2 border-b pb-1 mt-3">Financial Settings</h4>
+                    <div class="space-y-2">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">Dhara Day</label>
+                                <input type="number" x-model="newParty.dhara_day" placeholder="0" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-0.5">Interest (%)</label>
+                                <input type="number" step="0.01" x-model="newParty.interest" placeholder="0.00" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-span-2 flex gap-2 justify-end mt-3 pt-3 border-t">
+                <button type="button" @click="showPartyModal = false" class="px-3 py-1.5 text-xs bg-gray-100 rounded-md">Cancel</button>
+                <button type="button" @click="saveParty" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md">Save Party</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quality Modal -->
+    <div x-show="showQualityModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md" @click.away="showQualityModal = false">
+            <h3 class="text-lg font-bold mb-4">Add New Quality</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Name *</label>
+                    <input type="text" x-model="newQuality.name" class="w-full px-3 py-2 border rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Quality Main Group</label>
+                    <select x-model="newQuality.quality_main_group" class="w-full px-3 py-2 border rounded-md">
+                        <option value="">Select</option>
+                        <option value="Polyester">Polyester</option>
+                        <option value="Cotton">Cotton</option>
+                        <option value="Viscose">Viscose</option>
+                        <option value="Silk">Silk</option>
+                        <option value="Wool">Wool</option>
+                        <option value="Linen">Linen</option>
+                        <option value="Blended">Blended</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Yarn Used</label>
+                    <select x-model="newQuality.yarn_used" class="w-full px-3 py-2 border rounded-md">
+                        <option value="">Select</option>
+                        <option value="Y">Y - Yarn</option>
+                        <option value="G">G - Grey</option>
+                        <option value="S">S - Saree</option>
+                        <option value="O">O - Other</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Y=Yarn, G=Grey, S=Saree, O=Other</p>
+                </div>
+            </div>
+            <div class="flex gap-3 justify-end mt-6 pt-4 border-t">
+                <button type="button" @click="showQualityModal = false" class="px-4 py-2 bg-gray-100 rounded-md">Cancel</button>
+                <button type="button" @click="saveQuality" class="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function invoiceForm() {
+    return {
+        customerId: '',
+        customerAddress: '',
+        customerState: '',
+        brokerId: '',
+        brokerName: 'None',
+        partySearch: '',
+        parties: [],
+        filteredParties: [],
+        showPartyDropdown: false,
+        partySelectedIndex: 0,
+        showPartyModal: false,
+        showBrokerModal: false,
+        newParty: {name: '', party_type: 'customer', party_code: '', gstin: '', phone: '', delivery_address: '', delivery_city: '', delivery_pincode: '', delivery_state: 'GUJARAT', office_address: '', office_city: '', office_pincode: '', office_state: 'GUJARAT', email: '', broker_id: '', brokerage: 0, dhara_day: 0, interest: 0},
+        newBroker: {name: '', phone: ''},
+        indianStates: ['ANDHRA PRADESH', 'ARUNACHAL PRADESH', 'ASSAM', 'BIHAR', 'CHHATTISGARH', 'GOA', 'GUJARAT', 'HARYANA', 'HIMACHAL PRADESH', 'JHARKHAND', 'KARNATAKA', 'KERALA', 'MADHYA PRADESH', 'MAHARASHTRA', 'MANIPUR', 'MEGHALAYA', 'MIZORAM', 'NAGALAND', 'ODISHA', 'PUNJAB', 'RAJASTHAN', 'SIKKIM', 'TAMIL NADU', 'TELANGANA', 'TRIPURA', 'UTTAR PRADESH', 'UTTARAKHAND', 'WEST BENGAL'],
+        brokers: [],
+        quality: '',
+        qualitySearch: '',
+        qualities: [],
+        filteredQualities: [],
+        showQualityDropdown: false,
+        qualitySelectedIndex: 0,
+        showQualityModal: false,
+        newQuality: {name: '', quality_main_group: '', yarn_used: ''},
+        items: [],
+        currentItem: {quality: '', total_taka: 0, meters: 0, rate: 0},
+        dueDays: 0,
+        dueDate: '',
+        gstPercent: 5,
+        subtotal: 0,
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+        gstAmount: 0,
+        roundOff: 0,
+        totalAmount: 0,
+        
+        async init() {
+            await this.loadParties();
+            await this.loadQualities();
+            await this.loadBrokers();
+        },
+        
+        async loadBrokers() {
+            try {
+                const res = await fetch('/parties/api/brokers');
+                if (res.ok) {
+                    this.brokers = await res.json();
+                }
+            } catch (e) {}
+        },
+        
+        async loadParties() {
+            try {
+                const res = await fetch('/parties/api/list');
+                if (res.ok) {
+                    const allParties = await res.json();
+                    this.parties = allParties.filter(p => p.party_type === 'customer' || p.party_type === 'both');
+                    this.filteredParties = [...this.parties];
+                }
+            } catch (e) {}
+        },
+        
+        filterParties() {
+            const search = (this.partySearch || '').toLowerCase();
+            if (search) {
+                this.filteredParties = this.parties.filter(p => p.name.toLowerCase().includes(search));
+            } else {
+                this.filteredParties = [...this.parties];
+            }
+            this.partySelectedIndex = 0;
+        },
+        
+        handlePartyKeydown(e) {
+            if (!this.showPartyDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showPartyDropdown = true;
+                this.filterParties();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showPartyDropdown) return;
+            
+            const maxIndex = this.filteredParties.length;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.partySelectedIndex = Math.min(this.partySelectedIndex + 1, maxIndex);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.partySelectedIndex = Math.max(this.partySelectedIndex - 1, 0);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.partySelectedIndex < this.filteredParties.length) {
+                        this.selectParty(this.filteredParties[this.partySelectedIndex]);
+                    } else {
+                        this.openPartyModal();
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.showPartyDropdown = false;
+                    break;
+            }
+        },
+        
+        selectParty(p) {
+            this.customerId = p._id;
+            this.partySearch = p.name;
+            this.customerAddress = p.delivery_address || '';
+            this.customerState = p.delivery_state || '';
+            this.brokerId = p.broker_id || '';
+            this.brokerName = this.getBrokerName(p.broker_id);
+            this.dueDays = p.dhara_day || 0;
+            this.calculateDueDate();
+            this.showPartyDropdown = false;
+        },
+        
+        getBrokerName(brokerId) {
+            if (!brokerId) return 'None';
+            const broker = this.brokers.find(b => b.id === brokerId);
+            return broker ? broker.name : 'None';
+        },
+        
+        openPartyModal() {
+            this.showPartyModal = true;
+            this.showPartyDropdown = false;
+            this.newParty = {name: this.partySearch, party_type: 'customer', party_code: '', gstin: '', phone: '', delivery_address: '', delivery_city: '', delivery_pincode: '', delivery_state: 'GUJARAT', office_address: '', office_city: '', office_pincode: '', office_state: 'GUJARAT', email: '', broker_id: '', brokerage: 0, dhara_day: 0, interest: 0};
+        },
+        
+        async saveParty() {
+            if (!this.newParty.name) {
+                alert('Please enter party name');
+                return;
+            }
+            try {
+                const res = await fetch('/parties/api/quick-add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({...this.newParty, party_type: 'customer'})
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    await this.loadParties();
+                    const newParty = this.parties.find(p => p._id === data.id);
+                    if (newParty) this.selectParty(newParty);
+                    this.showPartyModal = false;
+                    this.newParty = {name: '', party_type: 'customer', party_code: '', gstin: '', phone: '', delivery_address: '', delivery_city: '', delivery_pincode: '', delivery_state: 'GUJARAT', office_address: '', office_city: '', office_pincode: '', office_state: 'GUJARAT', email: '', broker_id: '', brokerage: 0, dhara_day: 0, interest: 0};
+                }
+            } catch (e) {}
+        },
+        
+        openBrokerModal() {
+            this.showBrokerModal = true;
+            this.newBroker = {name: '', phone: ''};
+        },
+        
+        async saveBroker() {
+            if (!this.newBroker.name) {
+                alert('Please enter broker name');
+                return;
+            }
+            try {
+                const res = await fetch('/parties/api/quick-add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({...this.newBroker, party_type: 'broker'})
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    await this.loadBrokers();
+                    this.newParty.broker_id = data.id;
+                    this.showBrokerModal = false;
+                    this.newBroker = {name: '', phone: ''};
+                }
+            } catch (e) {}
+        },
+        
+        async loadQualities() {
+            try {
+                const res = await fetch('/qualities/api/list');
+                if (res.ok) {
+                    const data = await res.json();
+                    this.qualities = data.map(q => q.name);
+                    this.filteredQualities = [...this.qualities];
+                }
+            } catch (e) {}
+        },
+        
+        filterQualities() {
+            const search = (this.qualitySearch || '').toLowerCase();
+            if (search) {
+                this.filteredQualities = this.qualities.filter(q => q.toLowerCase().includes(search));
+            } else {
+                this.filteredQualities = [...this.qualities];
+            }
+            this.qualitySelectedIndex = 0;
+        },
+        
+        handleQualityKeydown(e) {
+            if (!this.showQualityDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showQualityDropdown = true;
+                this.filterQualities();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showQualityDropdown) return;
+            
+            const maxIndex = this.filteredQualities.length;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.qualitySelectedIndex = Math.min(this.qualitySelectedIndex + 1, maxIndex);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.qualitySelectedIndex = Math.max(this.qualitySelectedIndex - 1, 0);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.qualitySelectedIndex < this.filteredQualities.length) {
+                        this.selectQuality(this.filteredQualities[this.qualitySelectedIndex]);
+                    } else {
+                        this.openQualityModal();
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.showQualityDropdown = false;
+                    break;
+            }
+        },
+        
+        selectQuality(q) {
+            this.currentItem.quality = q;
+            this.qualitySearch = q;
+            this.showQualityDropdown = false;
+            
+            // Auto-fill rate if same quality exists
+            const existingItem = this.items.find(item => item.quality === q);
+            if (existingItem) {
+                this.currentItem.rate = existingItem.rate_per_meter;
+            }
+        },
+        
+        openQualityModal() {
+            this.showQualityModal = true;
+            this.showQualityDropdown = false;
+            this.newQuality = {name: this.qualitySearch, quality_main_group: '', yarn_used: ''};
+        },
+        
+        async saveQuality() {
+            if (!this.newQuality.name) {
+                alert('Please enter quality name');
+                return;
+            }
+            try {
+                const res = await fetch('/qualities/api/quick-add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(this.newQuality)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    this.qualities.push(data.name);
+                    this.qualities.sort();
+                    this.selectQuality(data.name);
+                    this.showQualityModal = false;
+                    this.newQuality = {name: '', display_name: '', quality_main_group: '', yarn_used: ''};
+                }
+            } catch (e) {}
+        },
+
+
+
+        calculateDueDate() {
+            const invoiceDate = document.querySelector('input[name="invoice_date"]').value;
+            if (invoiceDate && this.dueDays > 0) {
+                const date = new Date(invoiceDate);
+                date.setDate(date.getDate() + parseInt(this.dueDays));
+                this.dueDate = date.toISOString().split('T')[0];
+            } else {
+                this.dueDate = '';
+            }
+        },
+
+        addItem() {
+            if (!this.currentItem.quality || parseFloat(this.currentItem.meters) <= 0) {
+                alert('⚠️ Please enter quality and meters');
+                return;
+            }
+            const meters = parseFloat(this.currentItem.meters) || 0;
+            const rate = parseFloat(this.currentItem.rate) || 0;
+            const amount = meters * rate;
+            
+            // Check if same quality with same rate exists
+            const existingItemIndex = this.items.findIndex(item => 
+                item.quality === this.currentItem.quality && 
+                Math.abs(parseFloat(item.rate_per_meter) - rate) < 0.01
+            );
+            
+            if (existingItemIndex !== -1) {
+                // Merge with existing item
+                this.items[existingItemIndex].total_taka += parseFloat(this.currentItem.total_taka) || 0;
+                this.items[existingItemIndex].meters += meters;
+                this.items[existingItemIndex].amount += amount;
+            } else {
+                // Add new item
+                const item = {
+                    quality: this.currentItem.quality,
+                    total_taka: parseFloat(this.currentItem.total_taka) || 0,
+                    meters: meters,
+                    rate_per_meter: rate,
+                    amount: amount
+                };
+                this.items.push(item);
+            }
+            
+            this.currentItem = {quality: '', total_taka: 0, meters: 0, rate: 0};
+            this.qualitySearch = '';
+            this.calculateTotal();
+            this.$refs.qualityInput.focus();
+        },
+        
+        removeItem(idx) {
+            this.items.splice(idx, 1);
+            this.calculateTotal();
+        },
+        
+        calculateTotal() {
+            this.subtotal = this.items.reduce((sum, item) => sum + item.amount, 0);
+            this.gstAmount = this.subtotal * (parseFloat(this.gstPercent) / 100);
+            this.cgst = this.gstAmount / 2;
+            this.sgst = this.gstAmount / 2;
+            this.igst = 0;
+            const beforeRoundOff = this.subtotal + this.gstAmount;
+            const rounded = Math.round(beforeRoundOff);
+            this.roundOff = rounded - beforeRoundOff;
+            this.totalAmount = rounded;
+        },
+
+        validateForm(e) {
+            if (!this.customerId) {
+                e.preventDefault();
+                alert('Please select a customer');
+                return false;
+            }
+            if (this.items.length === 0) {
+                e.preventDefault();
+                alert('Please add at least one item');
+                return false;
+            }
+            const subtotal = this.items.reduce((sum, item) => sum + item.amount, 0);
+            const gstAmount = subtotal * (this.gstPercent / 100);
+            const cgst = gstAmount / 2;
+            const sgst = gstAmount / 2;
+            const itemsWithGst = this.items.map(item => ({
+                ...item,
+                taxable_amount: item.amount,
+                gst_rate: this.gstPercent,
+                cgst: (item.amount / subtotal) * cgst,
+                sgst: (item.amount / subtotal) * sgst,
+                igst: 0
+            }));
+            const itemsInput = document.createElement('input');
+            itemsInput.type = 'hidden';
+            itemsInput.name = 'items';
+            itemsInput.value = JSON.stringify(itemsWithGst);
+            e.target.appendChild(itemsInput);
+            return true;
+        },
+
+        resetForm() {
+            document.querySelector('form').reset();
+            this.customerId = '';
+            this.customerAddress = '';
+            this.brokerId = '';
+            this.brokerName = 'None';
+            this.partySearch = '';
+            this.items = [];
+            this.currentItem = {quality: '', total_taka: 0, meters: 0, rate: 0};
+            this.dueDays = 0;
+            this.dueDate = '';
+            this.gstPercent = 5;
+            this.subtotal = 0;
+            this.cgst = 0;
+            this.sgst = 0;
+            this.igst = 0;
+            this.gstAmount = 0;
+            this.roundOff = 0;
+            this.totalAmount = 0;
+        }
+    }
+}
+</script>
+{% endblock %}

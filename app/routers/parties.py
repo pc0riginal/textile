@@ -1,0 +1,576 @@
+from fastapi import APIRouter, Request, Depends, Form, Query, HTTPException
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse, JSONResponse
+from datetime import datetime
+from bson import ObjectId
+from typing import Optional
+
+from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
+from app.database import get_collection
+
+router = APIRouter()
+templates = Jinja2Templates(directory="app/templates")
+
+@router.get("")
+async def list_parties(
+    context: dict = Depends(get_template_context),
+    party_type: Optional[str] = Query(None)
+):
+    parties_collection = await get_collection("parties")
+    
+    filter_query = get_company_filter(context["current_company"])
+    if party_type:
+        filter_query["party_type"] = party_type
+    
+    parties = await parties_collection.find(filter_query).sort("name", 1).to_list(None)
+    
+    context.update({
+        "parties": parties,
+        "selected_type": party_type,
+        "breadcrumbs": [
+            {"name": "Dashboard", "url": "/dashboard"},
+            {"name": "Parties", "url": "/parties"}
+        ]
+    })
+    return templates.TemplateResponse("parties/list.html", context)
+
+@router.get("/create")
+async def create_party_form(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    current_company: dict = Depends(get_current_company),
+    type: Optional[str] = Query(None),
+    redirect: Optional[str] = Query(None)
+):
+    companies_collection = await get_collection("companies")
+    parties_collection = await get_collection("parties")
+    
+    user_companies = await companies_collection.find(
+        {"_id": {"$in": [ObjectId(cid) for cid in current_user.get("companies", [])]}}
+    ).to_list(None)
+    
+    all_fys = await companies_collection.distinct("financial_year")
+    financial_years = sorted(set(all_fys), reverse=True)
+    
+    brokers = await parties_collection.find({
+        **get_company_filter(current_company),
+        "party_type": "broker"
+    }).sort("name", 1).to_list(None)
+    
+    indian_states = [
+        "ANDHRA PRADESH", "ARUNACHAL PRADESH", "ASSAM", "BIHAR", "CHHATTISGARH",
+        "GOA", "GUJARAT", "HARYANA", "HIMACHAL PRADESH", "JHARKHAND", "KARNATAKA",
+        "KERALA", "MADHYA PRADESH", "MAHARASHTRA", "MANIPUR", "MEGHALAYA", "MIZORAM",
+        "NAGALAND", "ODISHA", "PUNJAB", "RAJASTHAN", "SIKKIM", "TAMIL NADU",
+        "TELANGANA", "TRIPURA", "UTTAR PRADESH", "UTTARAKHAND", "WEST BENGAL"
+    ]
+    
+    return templates.TemplateResponse("parties/create.html", {
+        "request": request,
+        "current_user": current_user,
+        "current_company": current_company,
+        "user_companies": user_companies,
+        "financial_years": financial_years,
+        "brokers": brokers,
+        "indian_states": indian_states,
+        "default_type": type,
+        "redirect_url": redirect,
+        "breadcrumbs": [
+            {"name": "Dashboard", "url": "/dashboard"},
+            {"name": "Parties", "url": "/parties"},
+            {"name": "Create", "url": "/parties/create"}
+        ]
+    })
+
+@router.post("/create")
+async def create_party(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    current_company: dict = Depends(get_current_company),
+    name: str = Form(...),
+    party_type: str = Form(...),
+    party_code: str = Form(None),
+    gstin: str = Form(None),
+    pan: str = Form(None),
+    delivery_address: str = Form(None),
+    delivery_city: str = Form(None),
+    delivery_pincode: str = Form(None),
+    delivery_state: str = Form("GUJARAT"),
+    office_address: str = Form(None),
+    office_city: str = Form(None),
+    office_pincode: str = Form(None),
+    office_state: str = Form("GUJARAT"),
+    phone: str = Form(...),
+    email: str = Form(None),
+    contact_person: str = Form(None),
+    broker_id: str = Form(None),
+    brokerage: float = Form(0.0),
+    dhara_day: int = Form(0),
+    interest: float = Form(0.0),
+    redirect_url: str = Form(None)
+):
+    parties_collection = await get_collection("parties")
+    
+    # Generate party code if not provided
+    if not party_code:
+        count = await parties_collection.count_documents(get_company_filter(current_company))
+        party_code = f"P{count + 1:04d}"
+    
+    party_data = {
+        **get_company_filter(current_company),
+        "name": name,
+        "party_type": party_type,
+        "party_code": party_code,
+        "gstin": gstin,
+        "pan": pan,
+        "delivery_address": delivery_address,
+        "delivery_city": delivery_city,
+        "delivery_pincode": delivery_pincode,
+        "delivery_state": delivery_state,
+        "office_address": office_address,
+        "office_city": office_city,
+        "office_pincode": office_pincode,
+        "office_state": office_state,
+        "contact": {
+            "phone": phone,
+            "email": email,
+            "contact_person": contact_person
+        },
+        "broker_id": ObjectId(broker_id) if broker_id else None,
+        "brokerage": brokerage,
+        "dhara_day": dhara_day,
+        "interest": interest,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await parties_collection.insert_one(party_data)
+    
+    if result.inserted_id:
+        redirect_to = redirect_url if redirect_url else "/parties"
+        return RedirectResponse(url=redirect_to, status_code=302)
+    else:
+        return templates.TemplateResponse("parties/create.html", {
+            "request": request,
+            "current_user": current_user,
+            "current_company": current_company,
+            "error": "Failed to create party"
+        })
+
+@router.post("/api/quick-add")
+async def quick_add_party(
+    request: Request,
+    current_company: dict = Depends(get_current_company)
+):
+    data = await request.json()
+    parties_collection = await get_collection("parties")
+    
+    existing = await parties_collection.find_one({
+        **get_company_filter(current_company),
+        "name": data["name"],
+        "party_type": data.get("party_type", "customer")
+    })
+    
+    if existing:
+        return JSONResponse(content={"id": str(existing["_id"]), "name": existing["name"]})
+    
+    count = await parties_collection.count_documents(get_company_filter(current_company))
+    party_code = f"P{count + 1:04d}"
+    
+    party_data = {
+        **get_company_filter(current_company),
+        "name": data["name"],
+        "party_type": data.get("party_type", "customer"),
+        "party_code": data.get("party_code") or party_code,
+        "gstin": data.get("gstin", ""),
+        "delivery_address": data.get("delivery_address", ""),
+        "delivery_city": data.get("delivery_city", ""),
+        "delivery_pincode": data.get("delivery_pincode", ""),
+        "delivery_state": data.get("delivery_state", "GUJARAT"),
+        "office_address": data.get("office_address", ""),
+        "office_city": data.get("office_city", ""),
+        "office_pincode": data.get("office_pincode", ""),
+        "office_state": data.get("office_state", "GUJARAT"),
+        "contact": {
+            "phone": data.get("phone", ""),
+            "email": data.get("email", "")
+        },
+        "broker_id": ObjectId(data["broker_id"]) if data.get("broker_id") else None,
+        "brokerage": float(data.get("brokerage", 0)),
+        "dhara_day": int(data.get("dhara_day", 0)),
+        "interest": float(data.get("interest", 0)),
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await parties_collection.insert_one(party_data)
+    return JSONResponse(content={"id": str(result.inserted_id), "name": data["name"]})
+
+@router.post("/quick-add-full")
+async def quick_add_full_party(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    current_company: dict = Depends(get_current_company)
+):
+    data = await request.json()
+    parties_collection = await get_collection("parties")
+    
+    # Create supplier
+    count = await parties_collection.count_documents(get_company_filter(current_company))
+    party_code = f"P{count + 1:04d}"
+    
+    party_data = {
+        **get_company_filter(current_company),
+        "name": data["name"],
+        "party_type": data["party_type"],
+        "party_code": party_code,
+        "gstin": data.get("gstin", ""),
+        "pan": data.get("pan", ""),
+        "address": {
+            "line1": data["address_line1"],
+            "line2": "",
+            "city": data["city"],
+            "state": data["state"],
+            "pincode": data["pincode"]
+        },
+        "contact": {"phone": data["phone"], "email": ""},
+        "credit_limit": 0.0,
+        "opening_balance": 0.0,
+        "current_balance": 0.0,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await parties_collection.insert_one(party_data)
+    
+    response_data = {
+        "supplier": {
+            "id": str(result.inserted_id),
+            "name": data["name"],
+            "party_code": party_code
+        }
+    }
+    
+    # Create/link broker if provided
+    if data.get("broker_name"):
+        existing_broker = await parties_collection.find_one({
+            **get_company_filter(current_company),
+            "party_type": "broker",
+            "name": data["broker_name"]
+        })
+        
+        if existing_broker:
+            broker_id = existing_broker["_id"]
+            response_data["broker"] = {
+                "id": str(broker_id),
+                "name": data["broker_name"]
+            }
+        else:
+            broker_count = await parties_collection.count_documents(get_company_filter(current_company))
+            broker_code = f"P{broker_count + 1:04d}"
+            
+            broker_data = {
+                **get_company_filter(current_company),
+                "name": data["broker_name"],
+                "party_type": "broker",
+                "party_code": broker_code,
+                "address": {"line1": "-", "city": "-", "state": "-", "pincode": "-"},
+                "contact": {"phone": "-"},
+                "credit_limit": 0.0,
+                "opening_balance": 0.0,
+                "current_balance": 0.0,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            broker_result = await parties_collection.insert_one(broker_data)
+            broker_id = broker_result.inserted_id
+            response_data["broker"] = {
+                "id": str(broker_id),
+                "name": data["broker_name"]
+            }
+        
+        # Link broker to supplier
+        await parties_collection.update_one(
+            {"_id": result.inserted_id},
+            {"$set": {"broker_id": broker_id}}
+        )
+    
+    return JSONResponse(content=response_data)
+
+@router.get("/api/list")
+async def get_parties_api(
+    current_company: dict = Depends(get_current_company),
+    party_type: Optional[str] = Query(None)
+):
+    parties_collection = await get_collection("parties")
+    filter_query = get_company_filter(current_company)
+    if party_type:
+        filter_query["party_type"] = party_type
+    
+    parties = await parties_collection.find(filter_query).sort("name", 1).to_list(None)
+    
+    for p in parties:
+        p["_id"] = str(p["_id"])
+        if "company_id" in p:
+            p["company_id"] = str(p["company_id"])
+        if "broker_id" in p and p["broker_id"]:
+            p["broker_id"] = str(p["broker_id"])
+        if "created_at" in p:
+            del p["created_at"]
+        if "updated_at" in p:
+            del p["updated_at"]
+    
+    return JSONResponse(content=parties)
+
+@router.get("/api/brokers")
+async def get_brokers(
+    current_company: dict = Depends(get_current_company)
+):
+    parties_collection = await get_collection("parties")
+    brokers = await parties_collection.find({
+        **get_company_filter(current_company),
+        "party_type": "broker"
+    }).sort("name", 1).to_list(None)
+    
+    for broker in brokers:
+        broker["id"] = str(broker["_id"])
+        del broker["_id"]
+        if "company_id" in broker:
+            broker["company_id"] = str(broker["company_id"])
+        if "broker_id" in broker and broker["broker_id"]:
+            broker["broker_id"] = str(broker["broker_id"])
+        if "created_at" in broker:
+            del broker["created_at"]
+        if "updated_at" in broker:
+            del broker["updated_at"]
+    
+    return JSONResponse(content=brokers)
+
+@router.get("/search")
+async def search_parties(
+    q: str = Query(...),
+    current_company: dict = Depends(get_current_company)
+):
+    parties_collection = await get_collection("parties")
+    
+    parties = await parties_collection.find({
+        **get_company_filter(current_company),
+        "$or": [
+            {"name": {"$regex": q, "$options": "i"}},
+            {"party_code": {"$regex": q, "$options": "i"}},
+            {"contact.phone": {"$regex": q, "$options": "i"}}
+        ]
+    }).limit(10).to_list(10)
+    
+    for party in parties:
+        party["id"] = str(party["_id"])
+        del party["_id"]
+        party["company_id"] = str(party["company_id"])
+    
+    return JSONResponse(content=parties)
+
+@router.get("/{party_id}/edit")
+async def edit_party_form(
+    request: Request,
+    party_id: str,
+    current_user: dict = Depends(get_current_user),
+    current_company: dict = Depends(get_current_company)
+):
+    parties_collection = await get_collection("parties")
+    party = await parties_collection.find_one({
+        "_id": ObjectId(party_id),
+        **get_company_filter(current_company)
+    })
+    
+    if not party:
+        raise HTTPException(status_code=404, detail="Party not found")
+    
+    brokers = await parties_collection.find({
+        **get_company_filter(current_company),
+        "party_type": "broker"
+    }).sort("name", 1).to_list(None)
+    
+    indian_states = [
+        "ANDHRA PRADESH", "ARUNACHAL PRADESH", "ASSAM", "BIHAR", "CHHATTISGARH",
+        "GOA", "GUJARAT", "HARYANA", "HIMACHAL PRADESH", "JHARKHAND", "KARNATAKA",
+        "KERALA", "MADHYA PRADESH", "MAHARASHTRA", "MANIPUR", "MEGHALAYA", "MIZORAM",
+        "NAGALAND", "ODISHA", "PUNJAB", "RAJASTHAN", "SIKKIM", "TAMIL NADU",
+        "TELANGANA", "TRIPURA", "UTTAR PRADESH", "UTTARAKHAND", "WEST BENGAL"
+    ]
+    
+    return templates.TemplateResponse("parties/edit.html", {
+        "request": request,
+        "current_user": current_user,
+        "current_company": current_company,
+        "party": party,
+        "brokers": brokers,
+        "indian_states": indian_states,
+        "breadcrumbs": [
+            {"name": "Dashboard", "url": "/dashboard"},
+            {"name": "Parties", "url": "/parties"},
+            {"name": "Edit", "url": f"/parties/{party_id}/edit"}
+        ]
+    })
+
+@router.post("/{party_id}/edit")
+async def update_party(
+    party_id: str,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    current_company: dict = Depends(get_current_company),
+    name: str = Form(...),
+    party_type: str = Form(...),
+    party_code: str = Form(None),
+    gstin: str = Form(None),
+    delivery_address: str = Form(None),
+    delivery_city: str = Form(None),
+    delivery_pincode: str = Form(None),
+    delivery_state: str = Form("GUJARAT"),
+    office_address: str = Form(None),
+    office_city: str = Form(None),
+    phone: str = Form(...),
+    email: str = Form(None),
+    broker_id: str = Form(None),
+    brokerage: float = Form(0.0),
+    dhara_day: int = Form(0),
+    interest: float = Form(0.0)
+):
+    parties_collection = await get_collection("parties")
+    
+    update_data = {
+        "name": name,
+        "party_type": party_type,
+        "party_code": party_code,
+        "gstin": gstin,
+        "delivery_address": delivery_address,
+        "delivery_city": delivery_city,
+        "delivery_pincode": delivery_pincode,
+        "delivery_state": delivery_state,
+        "office_address": office_address,
+        "office_city": office_city,
+        "contact": {"phone": phone, "email": email},
+        "broker_id": ObjectId(broker_id) if broker_id else None,
+        "brokerage": brokerage,
+        "dhara_day": dhara_day,
+        "interest": interest,
+        "updated_at": datetime.utcnow()
+    }
+    
+    result = await parties_collection.update_one(
+        {"_id": ObjectId(party_id), **get_company_filter(current_company)},
+        {"$set": update_data}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Party not found")
+    
+    return RedirectResponse(url="/parties", status_code=302)
+
+@router.get("/{party_id}")
+async def view_party(
+    request: Request,
+    party_id: str,
+    current_user: dict = Depends(get_current_user),
+    current_company: dict = Depends(get_current_company)
+):
+    parties_collection = await get_collection("parties")
+    party = await parties_collection.find_one({
+        "_id": ObjectId(party_id),
+        **get_company_filter(current_company)
+    })
+    
+    if not party:
+        raise HTTPException(status_code=404, detail="Party not found")
+    
+    broker = None
+    if party.get("broker_id"):
+        broker = await parties_collection.find_one({"_id": party["broker_id"]})
+    
+    return templates.TemplateResponse("parties/view.html", {
+        "request": request,
+        "current_user": current_user,
+        "current_company": current_company,
+        "party": party,
+        "broker": broker,
+        "breadcrumbs": [
+            {"name": "Dashboard", "url": "/dashboard"},
+            {"name": "Parties", "url": "/parties"},
+            {"name": party["name"], "url": f"/parties/{party_id}"}
+        ]
+    })
+
+@router.get("/api/party-banks")
+async def get_party_banks(
+    current_company: dict = Depends(get_current_company)
+):
+    party_banks_collection = await get_collection("party_banks")
+    banks = await party_banks_collection.find(
+        get_company_filter(current_company)
+    ).sort("bank_name", 1).to_list(None)
+    return JSONResponse(content=[b["bank_name"] for b in banks])
+
+@router.post("/api/add-party-bank")
+async def add_party_bank(
+    request: Request,
+    current_company: dict = Depends(get_current_company)
+):
+    data = await request.json()
+    party_banks_collection = await get_collection("party_banks")
+    
+    existing = await party_banks_collection.find_one({
+        **get_company_filter(current_company),
+        "bank_name": data["bank_name"]
+    })
+    
+    if not existing:
+        await party_banks_collection.insert_one({
+            **get_company_filter(current_company),
+            "bank_name": data["bank_name"],
+            "created_at": datetime.utcnow()
+        })
+    
+    return JSONResponse(content={"success": True})
+
+@router.get("/api/{party_id}")
+async def get_party_api(
+    party_id: str,
+    current_company: dict = Depends(get_current_company)
+):
+    parties_collection = await get_collection("parties")
+    party = await parties_collection.find_one({
+        "_id": ObjectId(party_id),
+        **get_company_filter(current_company)
+    })
+    
+    if not party:
+        raise HTTPException(status_code=404, detail="Party not found")
+    
+    party["id"] = str(party["_id"])
+    del party["_id"]
+    party["company_id"] = str(party["company_id"])
+    if "broker_id" in party and party["broker_id"]:
+        party["broker_id"] = str(party["broker_id"])
+    if "created_at" in party:
+        del party["created_at"]
+    if "updated_at" in party:
+        del party["updated_at"]
+    
+    return JSONResponse(content=party)
+
+@router.delete("/{party_id}")
+async def delete_party(
+    party_id: str,
+    current_user: dict = Depends(get_current_user),
+    current_company: dict = Depends(get_current_company)
+):
+    parties_collection = await get_collection("parties")
+    result = await parties_collection.delete_one({
+        "_id": ObjectId(party_id),
+        **get_company_filter(current_company)
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Party not found")
+    
+    return JSONResponse(content={"message": "Party deleted successfully"})

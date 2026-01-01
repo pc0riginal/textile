@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Company - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4 md:space-y-6">
+    <div>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900">Edit Company</h1>
+        <p class="text-sm md:text-base text-gray-600">Update company information</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
+        <form method="POST" action="/companies/{{ company._id }}/edit" class="space-y-6" onsubmit="return validateForm()">
+            <div>
+                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">Basic Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
+                        <input type="text" id="name" name="name" value="{{ company.name }}" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span id="name-error" class="text-xs text-red-600 hidden"></span>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">GSTIN *</label>
+                        <input type="text" id="gstin" name="gstin" value="{{ company.gstin or '' }}" maxlength="15" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" oninput="this.value = this.value.toUpperCase()">
+                        <span id="gstin-error" class="text-xs text-red-600 hidden"></span>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">PAN</label>
+                        <input type="text" id="pan" name="pan" value="{{ company.pan or '' }}" maxlength="10"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" oninput="this.value = this.value.toUpperCase()">
+                        <span id="pan-error" class="text-xs text-red-600 hidden"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">Address</h3>
+                <div class="space-y-4">
+                    <div>
+                        <input type="text" id="address_line1" name="address_line1" value="{{ company.address.line1 }}" required placeholder="Address Line 1"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span id="address_line1-error" class="text-xs text-red-600 hidden"></span>
+                    </div>
+                    <input type="text" name="address_line2" value="{{ company.address.line2 or '' }}" placeholder="Address Line 2"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input type="text" name="city" value="{{ company.address.city or '' }}" placeholder="City"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" name="state" value="{{ company.address.state or '' }}" placeholder="State"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <div>
+                            <input type="text" id="pincode" name="pincode" value="{{ company.address.pincode or '' }}" placeholder="Pincode" maxlength="6"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <span id="pincode-error" class="text-xs text-red-600 hidden"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">Contact</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div>
+                        <input type="tel" id="phone" name="phone" value="{{ company.contact.phone }}" required maxlength="10" placeholder="Phone"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span id="phone-error" class="text-xs text-red-600 hidden"></span>
+                    </div>
+                    <div>
+                        <input type="email" id="email" name="email" value="{{ company.contact.email or '' }}" placeholder="Email"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span id="email-error" class="text-xs text-red-600 hidden"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4 pt-4 md:pt-6 border-t border-gray-200">
+                <a href="/companies" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 text-center text-sm md:text-base">Cancel</a>
+                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm md:text-base">Update Company</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function validateForm() {
+    let isValid = true;
+    let firstError = null;
+    
+    document.querySelectorAll('[id$="-error"]').forEach(el => {
+        el.classList.add('hidden');
+        el.textContent = '';
+    });
+    document.querySelectorAll('input').forEach(el => el.classList.remove('border-red-500'));
+    
+    const name = document.getElementById('name');
+    if (!name.value.trim()) {
+        showError('name', 'Company name is required');
+        isValid = false;
+        if (!firstError) firstError = name;
+    }
+    
+    const gstin = document.getElementById('gstin');
+    if (!gstin.value.trim()) {
+        showError('gstin', 'GSTIN is required');
+        isValid = false;
+        if (!firstError) firstError = gstin;
+    } else if (gstin.value.length !== 15) {
+        showError('gstin', 'GSTIN must be exactly 15 characters');
+        isValid = false;
+        if (!firstError) firstError = gstin;
+    }
+    
+    const pan = document.getElementById('pan');
+    if (pan.value && pan.value.length !== 10) {
+        showError('pan', 'PAN must be exactly 10 characters');
+        isValid = false;
+        if (!firstError) firstError = pan;
+    }
+    
+    const address = document.getElementById('address_line1');
+    if (!address.value.trim()) {
+        showError('address_line1', 'Address line 1 is required');
+        isValid = false;
+        if (!firstError) firstError = address;
+    }
+    
+    const pincode = document.getElementById('pincode');
+    if (pincode.value && !/^[0-9]{6}$/.test(pincode.value)) {
+        showError('pincode', 'Pincode must be exactly 6 digits');
+        isValid = false;
+        if (!firstError) firstError = pincode;
+    }
+    
+    const phone = document.getElementById('phone');
+    if (!phone.value.trim()) {
+        showError('phone', 'Phone is required');
+        isValid = false;
+        if (!firstError) firstError = phone;
+    } else if (!/^[0-9]{10}$/.test(phone.value)) {
+        showError('phone', 'Phone must be exactly 10 digits');
+        isValid = false;
+        if (!firstError) firstError = phone;
+    }
+    
+    const email = document.getElementById('email');
+    if (email.value && !/^[\w\.-]+@[\w\.-]+\.\w+$/.test(email.value)) {
+        showError('email', 'Invalid email format');
+        isValid = false;
+        if (!firstError) firstError = email;
+    }
+    
+    if (!isValid && firstError) {
+        firstError.focus();
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    return isValid;
+}
+
+function showError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const error = document.getElementById(fieldId + '-error');
+    field.classList.add('border-red-500');
+    error.textContent = message;
+    error.classList.remove('hidden');
+}
+</script>
+{% endblock %}

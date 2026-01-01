@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Purchase Invoice {{ challan.challan_no }} - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4 px-4 md:px-0">
+    <div class="flex justify-between items-center">
+        <h1 class="text-xl md:text-2xl font-bold">Purchase Invoice</h1>
+        <a href="/purchase-invoices" class="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200">Back</a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border p-6">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div>
+                <p class="text-sm text-gray-500">Company Name</p>
+                <p class="font-medium">{{ challan.get('company_name', '-') }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">Invoice Number</p>
+                <p class="font-medium">{{ challan.get('invoice_no', '-') }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">Challan Number</p>
+                <p class="font-medium">{{ challan.challan_no }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">Date</p>
+                <p class="font-medium">{{ challan.challan_date.strftime('%d %b %Y') }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">Supplier</p>
+                <p class="font-medium">{{ challan.supplier_name }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">Broker</p>
+                <p class="font-medium">{{ challan.get('broker_name', '-') }}</p>
+            </div>
+        </div>
+
+        {% set items_list = challan.get('items', []) %}
+        {% if items_list is sequence and items_list is not string and items_list|length > 0 %}
+        <div class="border-t pt-4">
+            <h3 class="font-medium mb-3">Items</h3>
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-3 py-2 text-left">Quality</th>
+                        <th class="px-3 py-2 text-left">HSN</th>
+                        <th class="px-3 py-2 text-right">Qty</th>
+                        <th class="px-3 py-2 text-left">Unit</th>
+                        <th class="px-3 py-2 text-right">Rate</th>
+                        <th class="px-3 py-2 text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items_list %}
+                    <tr class="border-t">
+                        <td class="px-3 py-2">{{ item.get('quality', '') }}</td>
+                        <td class="px-3 py-2">{{ item.get('hsn', '') }}</td>
+                        <td class="px-3 py-2 text-right">{{ item.get('quantity', 0) }}</td>
+                        <td class="px-3 py-2">{{ item.get('unit', '') }}</td>
+                        <td class="px-3 py-2 text-right">₹{{ "{:,.2f}".format(item.get('rate', 0)) }}</td>
+                        <td class="px-3 py-2 text-right">₹{{ "{:,.2f}".format(item.get('amount', 0)) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <div class="border-t mt-4 pt-4">
+            <div class="flex justify-end">
+                <div class="w-64 space-y-2 text-sm">
+                    <div class="flex justify-between"><span>Subtotal:</span><span>₹{{ "{:,.2f}".format(challan.get('subtotal', 0)) }}</span></div>
+                    {% set subtotal = challan.get('subtotal', 0) %}
+                    {% set cgst = challan.get('cgst', 0) %}
+                    {% set sgst = challan.get('sgst', 0) %}
+                    {% set gst_rate = challan.get('gst_rate', ((cgst + sgst) / subtotal * 100) if subtotal > 0 else 0) %}
+                    {% set half_gst = (gst_rate / 2)|round(2) %}
+                    <div class="flex justify-between"><span>CGST ({{ half_gst }}%):</span><span>₹{{ "{:,.2f}".format(cgst) }}</span></div>
+                    <div class="flex justify-between"><span>SGST ({{ half_gst }}%):</span><span>₹{{ "{:,.2f}".format(sgst) }}</span></div>
+                    <div class="flex justify-between font-bold text-lg border-t pt-2"><span>Total:</span><span>₹{{ "{:,.2f}".format(challan.get('total_amount', 0)) }}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

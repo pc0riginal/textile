@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Qualities - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Qualities</h1>
+            <p class="text-sm text-gray-600">Manage quality master data</p>
+        </div>
+        <a href="/qualities/create" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm text-center">
+            Add New Quality
+        </a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {% if qualities %}
+        <!-- Mobile Card View -->
+        <div class="md:hidden divide-y divide-gray-200">
+            {% for quality in qualities %}
+            <div class="p-4 hover:bg-gray-50">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="font-medium text-gray-900">{{ quality.name }}</div>
+                    <div class="flex gap-2">
+                        <a href="/qualities/{{ quality._id }}/edit" class="text-indigo-600 hover:text-indigo-900 text-sm">Edit</a>
+                        <button onclick="deleteQuality('{{ quality._id }}', '{{ quality.name }}')" class="text-red-600 hover:text-red-900 text-sm">Delete</button>
+                    </div>
+                </div>
+                <div class="space-y-1 text-sm text-gray-600">
+                    <div><span class="font-medium">Display:</span> {{ quality.display_name or '-' }}</div>
+                    <div><span class="font-medium">Group:</span> {{ quality.quality_main_group or '-' }}</div>
+                    <div><span class="font-medium">Yarn:</span> {{ quality.yarn_used or '-' }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Desktop Table View -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quality Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Display Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Main Group</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Yarn Used</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for quality in qualities %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ quality.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ quality.display_name or '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ quality.quality_main_group or '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ quality.yarn_used or '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex space-x-2">
+                                <a href="/qualities/{{ quality._id }}/edit" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                <button onclick="deleteQuality('{{ quality._id }}', '{{ quality.name }}')" class="text-red-600 hover:text-red-900">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No qualities found</h3>
+            <p class="mt-1 text-sm text-gray-500">Get started by creating your first quality.</p>
+            <div class="mt-6">
+                <a href="/qualities/create" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                    Add Quality
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+async function deleteQuality(qualityId, qualityName) {
+    if (!confirm(`Are you sure you want to delete ${qualityName}?`)) return;
+    
+    try {
+        const res = await fetch(`/qualities/${qualityId}`, {method: 'DELETE'});
+        if (res.ok) {
+            alert('Quality deleted successfully');
+            window.location.reload();
+        } else {
+            alert('Failed to delete quality');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

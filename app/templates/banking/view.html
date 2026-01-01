@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}View Bank Account - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Bank Account Details</h1>
+        <div class="space-x-2">
+            <a href="/banking/{{ bank._id }}/edit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Edit</a>
+            <a href="/banking/banks" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Back</a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Bank Name</label>
+                <p class="text-lg font-semibold">{{ bank.bank_name }}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Account Number</label>
+                <p class="text-lg font-semibold">{{ bank.account_number }}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">IFSC Code</label>
+                <p class="text-lg">{{ bank.ifsc_code }}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Branch</label>
+                <p class="text-lg">{{ bank.branch or '-' }}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Account Type</label>
+                <p class="text-lg">{{ bank.account_type }}</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Current Balance</label>
+                <p class="text-lg font-bold text-green-600">₹{{ "{:,.2f}".format(bank.current_balance) }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

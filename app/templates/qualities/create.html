@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Add Quality - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4 px-4 md:px-0" x-data="qualityForm()">
+    <div>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900">Quality Add/Edit Form</h1>
+        <p class="text-sm text-gray-600">Add new quality master</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
+        {% if error %}
+        <div class="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/qualities/create" @submit="validateForm" class="space-y-6">
+            <!-- Basic Details -->
+            <div>
+                <h3 class="text-base font-semibold text-gray-900 mb-3 border-b pb-2">Basic Details</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Name of Quality *</label>
+                        <input type="text" name="name" x-model="name" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+                        <input type="text" name="display_name" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Quality Main Group</label>
+                        <select name="quality_main_group" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Group</option>
+                            <option value="Polyester">Polyester</option>
+                            <option value="Cotton">Cotton</option>
+                            <option value="Viscose">Viscose</option>
+                            <option value="Silk">Silk</option>
+                            <option value="Wool">Wool</option>
+                            <option value="Linen">Linen</option>
+                            <option value="Blended">Blended</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Which Yarn Used?</label>
+                        <select name="yarn_used" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Type</option>
+                            <option value="Y">Y = YARN</option>
+                            <option value="G">G = GREY</option>
+                            <option value="S">S = SAREE</option>
+                            <option value="O">O = OTHER</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Buttons -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t">
+                <div class="flex gap-2">
+                    <button type="button" @click="resetForm" class="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Add New</button>
+                    <a href="/qualities" class="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 inline-block">Quality List</a>
+                </div>
+                <div class="flex gap-2">
+                    <a href="/qualities" class="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 inline-block">Exit</a>
+                    <button type="submit" class="px-6 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Save Quality</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function qualityForm() {
+    return {
+        name: '',
+
+        validateForm(e) {
+            if (!this.name.trim()) {
+                e.preventDefault();
+                alert('Please enter Name of Quality.');
+                return false;
+            }
+            return true;
+        },
+
+        resetForm() {
+            this.name = '';
+            document.querySelector('form').reset();
+        }
+    }
+}
+</script>
+{% endblock %}

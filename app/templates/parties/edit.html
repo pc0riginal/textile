@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Party - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-4 px-4 md:px-0" x-data="partyForm()">
+    <div>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900">Edit Party</h1>
+        <p class="text-sm text-gray-600">Update party master data</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
+        <form method="POST" action="/parties/{{ party._id }}/edit" @submit="validateForm" class="space-y-6">
+            <!-- Party Details -->
+            <div>
+                <h3 class="text-base font-semibold text-gray-900 mb-3 border-b pb-2">Party Details</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Party Name *</label>
+                        <input type="text" name="name" x-model="name" value="{{ party.name }}" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Party Type *</label>
+                        <select name="party_type" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="customer" {% if party.party_type == 'customer' %}selected{% endif %}>Customer</option>
+                            <option value="supplier" {% if party.party_type == 'supplier' %}selected{% endif %}>Supplier</option>
+                            <option value="both" {% if party.party_type == 'both' %}selected{% endif %}>Both</option>
+                            <option value="broker" {% if party.party_type == 'broker' %}selected{% endif %}>Broker</option>
+                            <option value="transporter" {% if party.party_type == 'transporter' %}selected{% endif %}>Transporter</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Party Code</label>
+                        <input type="text" name="party_code" value="{{ party.party_code }}" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50" readonly>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Delivery Address</label>
+                        <textarea name="delivery_address" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">{{ party.delivery_address or '' }}</textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">City (Delivery)</label>
+                        <input type="text" name="delivery_city" value="{{ party.delivery_city or '' }}" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Pin Code</label>
+                        <input type="text" name="delivery_pincode" x-model="deliveryPincode" value="{{ party.delivery_pincode or '' }}" @input="validatePincode" maxlength="6" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <p x-show="pincodeError" class="text-xs text-red-600 mt-1" x-text="pincodeError"></p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">State</label>
+                        <select name="delivery_state" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            {% for state in indian_states %}
+                            <option value="{{ state }}" {% if party.delivery_state == state %}selected{% endif %}>{{ state }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">GST No.</label>
+                        <input type="text" name="gstin" x-model="gstin" value="{{ party.gstin or '' }}" @input="gstin = gstin.toUpperCase(); validateGST()" maxlength="15" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 uppercase">
+                        <p x-show="gstError" class="text-xs text-red-600 mt-1" x-text="gstError"></p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
+                        <input type="text" name="phone" x-model="phone" value="{{ party.contact.phone }}" @input="validateMobile" maxlength="10" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <p x-show="mobileError" class="text-xs text-red-600 mt-1" x-text="mobileError"></p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Broker</label>
+                        <div class="flex gap-2">
+                            <select name="broker_id" x-model="brokerId" @change="toggleBrokerage" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                                <option value="">NONE</option>
+                                {% for broker in brokers %}
+                                <option value="{{ broker._id }}" {% if party.broker_id == broker._id %}selected{% endif %}>{{ broker.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" @click="showBrokerModal = true" class="px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700">+ Add</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Brokerage</label>
+                        <input type="number" step="0.01" name="brokerage" x-model="brokerage" value="{{ party.brokerage or 0 }}" :disabled="!brokerId" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" :class="!brokerId ? 'bg-gray-100' : ''">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Office Details -->
+            <div>
+                <h3 class="text-base font-semibold text-gray-900 mb-3 border-b pb-2">Office Details</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Office Address</label>
+                        <textarea name="office_address" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">{{ party.office_address or '' }}</textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">City (Office)</label>
+                        <input type="text" name="office_city" value="{{ party.office_city or '' }}" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" name="email" value="{{ party.contact.email or '' }}" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Settings -->
+            <div>
+                <h3 class="text-base font-semibold text-gray-900 mb-3 border-b pb-2">Financial Settings</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Dhara Day</label>
+                        <input type="number" name="dhara_day" x-model="dharaDay" value="{{ party.dhara_day or 0 }}" @input="validateDharaDay" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <p x-show="dharaDayError" class="text-xs text-red-600 mt-1" x-text="dharaDayError"></p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Interest (%)</label>
+                        <input type="number" step="0.01" name="interest" x-model="interest" value="{{ party.interest or 0 }}" @input="validateInterest" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <p x-show="interestError" class="text-xs text-red-600 mt-1" x-text="interestError"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Buttons -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t">
+                <a href="/parties" class="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Cancel</a>
+                <button type="submit" class="px-6 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Update Party</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Broker Modal -->
+    <div x-show="showBrokerModal" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md" @click.away="showBrokerModal = false">
+            <h3 class="text-lg font-semibold mb-4">Add New Broker</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Broker Name *</label>
+                    <input type="text" x-model="newBrokerName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="flex gap-3 justify-end mt-6">
+                <button type="button" @click="showBrokerModal = false" class="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
+                <button type="button" @click="saveBroker" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function partyForm() {
+    return {
+        name: '{{ party.name }}',
+        phone: '{{ party.contact.phone }}',
+        gstin: '{{ party.gstin or "" }}',
+        deliveryPincode: '{{ party.delivery_pincode or "" }}',
+        brokerId: '{{ party.broker_id or "" }}',
+        brokerage: {{ party.brokerage or 0 }},
+        dharaDay: '{{ party.dhara_day or 0 }}',
+        interest: '{{ party.interest or 0 }}',
+        mobileError: '',
+        gstError: '',
+        pincodeError: '',
+        dharaDayError: '',
+        interestError: '',
+        showBrokerModal: false,
+        newBrokerName: '',
+
+        validateMobile() {
+            if (this.phone && !/^\d{10}$/.test(this.phone)) {
+                this.mobileError = 'Mobile number must be 10 digits';
+            } else {
+                this.mobileError = '';
+            }
+        },
+
+        validateGST() {
+            if (this.gstin && this.gstin.length !== 15) {
+                this.gstError = 'GST number must be 15 characters';
+            } else {
+                this.gstError = '';
+            }
+        },
+
+        validatePincode() {
+            if (this.deliveryPincode && !/^\d{6}$/.test(this.deliveryPincode)) {
+                this.pincodeError = 'Pin code must be 6 digits';
+            } else {
+                this.pincodeError = '';
+            }
+        },
+
+        validateDharaDay() {
+            if (this.dharaDay && !Number.isInteger(parseFloat(this.dharaDay))) {
+                this.dharaDayError = 'Dhara Day must be an integer';
+            } else {
+                this.dharaDayError = '';
+            }
+        },
+
+        validateInterest() {
+            if (this.interest && isNaN(parseFloat(this.interest))) {
+                this.interestError = 'Interest must be a numeric value';
+            } else {
+                this.interestError = '';
+            }
+        },
+
+        toggleBrokerage() {
+            if (!this.brokerId) {
+                this.brokerage = 0;
+            }
+        },
+
+        validateForm(e) {
+            if (!this.name.trim()) {
+                e.preventDefault();
+                alert('Please enter Party Name.');
+                return false;
+            }
+
+            if (this.mobileError || this.gstError || this.pincodeError || this.dharaDayError || this.interestError) {
+                e.preventDefault();
+                alert('Please fix all validation errors before submitting.');
+                return false;
+            }
+
+            return true;
+        },
+
+        async saveBroker() {
+            if (!this.newBrokerName.trim()) {
+                alert('Please enter broker name');
+                return;
+            }
+
+            try {
+                const res = await fetch('/parties/quick-add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: this.newBrokerName,
+                        party_type: 'broker'
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const select = document.querySelector('select[name="broker_id"]');
+                    const option = document.createElement('option');
+                    option.value = data.id;
+                    option.text = data.name;
+                    option.selected = true;
+                    select.add(option);
+                    this.brokerId = data.id;
+                    this.showBrokerModal = false;
+                    this.newBrokerName = '';
+                } else {
+                    alert('Failed to add broker');
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

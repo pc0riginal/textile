@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Invoice Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+            padding: 20px;
+            color: #000;
+        }
+
+        .invoice-container {
+            max-width: 210mm;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .header .pan {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .header h2 {
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+
+        .invoice-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .tax-invoice-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .ganesh {
+            text-align: center;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .detail-section {
+            border: 1px solid #000;
+            padding: 10px;
+        }
+
+        .detail-section h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 5px;
+        }
+
+        .detail-row {
+            display: flex;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            min-width: 100px;
+        }
+
+        .invoice-meta {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #000;
+            padding: 10px;
+        }
+
+        .meta-item {
+            font-size: 13px;
+        }
+
+        .meta-item strong {
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .totals-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .tax-breakdown {
+            border: 1px solid #000;
+            padding: 10px;
+        }
+
+        .tax-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .tax-row.total {
+            font-weight: bold;
+            font-size: 16px;
+            border-top: 2px solid #000;
+            padding-top: 5px;
+            margin-top: 5px;
+        }
+
+        .net-rate {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .bank-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            border: 1px solid #000;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .bank-details h4 {
+            grid-column: 1 / -1;
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 5px;
+        }
+
+        .bank-item {
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .bank-item strong {
+            display: inline-block;
+            min-width: 80px;
+        }
+
+        .additional-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
+        .info-box {
+            border: 1px solid #000;
+            padding: 10px;
+            font-size: 13px;
+        }
+
+        .amount-words {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #000;
+        }
+
+        .terms {
+            border: 1px solid #000;
+            padding: 10px;
+            font-size: 11px;
+            margin-bottom: 15px;
+        }
+
+        .terms h4 {
+            margin-bottom: 8px;
+        }
+
+        .signature-section {
+            text-align: right;
+            margin-top: 40px;
+            font-size: 14px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+            .invoice-container {
+                border: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Header -->
+        <div class="header">
+            <h1 id="companyName">ROOP SHREE DUPATTA HOUSE</h1>
+            <div class="pan">PAN: <span id="pan">AXCPP2131Q</span></div>
+            <h2 id="companyNameAlt">SITARAM TEXTILES</h2>
+            <div class="invoice-number" id="invoiceNumber">253</div>
+            <div class="tax-invoice-title">T A X   I N V O I C E</div>
+            <div class="ganesh">|| SHREE GANESHAY NAMAH ||</div>
+        </div>
+
+        <!-- Company & Party Details -->
+        <div class="details-grid">
+            <!-- Seller Details -->
+            <div class="detail-section">
+                <div class="detail-row">
+                    <span class="detail-label">Company:</span>
+                    <span id="sellerCompany">ROOP SHREE DUPATTA HOUSE</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Address:</span>
+                    <span id="sellerAddress">GALI NO.4 BETHAK DELHI SURAT</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">State:</span>
+                    <span id="sellerState">DELHI</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">GSTIN:</span>
+                    <span id="sellerGSTIN">07AMEPJ6910A1ZK</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">State Code:</span>
+                    <span id="sellerStateCode">07</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Phone:</span>
+                    <span id="sellerPhone">9228329102</span>
+                </div>
+            </div>
+
+            <!-- Buyer Details -->
+            <div class="detail-section">
+                <h3>DETAILS OF RECEIVER - BILLED TO</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Party:</span>
+                    <span id="buyerCompany">B 2/10 BHAGAWATI IND SOC.BHESTAN ROAD BHESTAN SURAT</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">GSTIN:</span>
+                    <span id="buyerGSTIN">24AXCPP2131Q1ZC</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invoice Metadata -->
+        <div class="invoice-meta">
+            <div class="meta-item">
+                <strong>Invoice No.</strong>
+                <span id="metaInvoiceNo">253</span>
+            </div>
+            <div class="meta-item">
+                <strong>Date:</strong>
+                <span id="invoiceDate">20-11-2025</span>
+            </div>
+            <div class="meta-item">
+                <strong>Challan No.</strong>
+                <span id="challanNo">253</span>
+            </div>
+            <div class="meta-item">
+                <strong>Date:</strong>
+                <span id="challanDate">20-11-2025</span>
+            </div>
+        </div>
+
+        <!-- Consignee Details -->
+        <div class="detail-section" style="margin-bottom: 15px;">
+            <h3>DETAILS OF CONSIGNEE - SHIPPED TO</h3>
+            <div class="detail-row">
+                <span class="detail-label">Address:</span>
+                <span id="consigneeAddress">GALI NO.4 BETHAK DELHI SURAT</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">State:</span>
+                <span id="consigneeState">DELHI</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">GSTIN:</span>
+                <span id="consigneeGSTIN">07AMEPJ6910A1ZK</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">State Code:</span>
+                <span id="consigneeStateCode">07</span>
+            </div>
+        </div>
+
+        <!-- Additional Info -->
+        <div class="additional-info">
+            <div class="info-box">
+                <div class="detail-row">
+                    <span class="detail-label">Broker:</span>
+                    <span id="broker">NONE</span>
+                </div>
+            </div>
+            <div class="info-box">
+                <div class="detail-row">
+                    <span class="detail-label">Transporter:</span>
+                    <span id="transporter"></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Vehicle No:</span>
+                    <span id="vehicleNo"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <table id="itemsTable">
+            <thead>
+                <tr>
+                    <th class="text-center" style="width: 50px;">Sr.</th>
+                    <th>Description</th>
+                    <th>HSN Code</th>
+                    <th class="text-center">Total Taka</th>
+                    <th class="text-center">Meters</th>
+                    <th class="text-right">Basic Rate</th>
+                    <th class="text-right">Total Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Items will be populated here -->
+            </tbody>
+        </table>
+
+        <!-- Totals Section -->
+        <div class="totals-section">
+            <div class="net-rate">
+                NET RATE: <span id="netRate">10.50</span>
+            </div>
+            <div class="tax-breakdown">
+                <div class="tax-row">
+                    <span>Total Amount Before Tax</span>
+                    <span id="beforeTax">16000.00</span>
+                </div>
+                <div class="tax-row">
+                    <span>Add: IGST <span id="igstPercent">0.00</span> %</span>
+                    <span id="igstAmount">0.00</span>
+                </div>
+                <div class="tax-row">
+                    <span>Add: CGST <span id="cgstPercent">2.50</span> %</span>
+                    <span id="cgstAmount">400.00</span>
+                </div>
+                <div class="tax-row">
+                    <span>Add: SGST <span id="sgstPercent">2.50</span> %</span>
+                    <span id="sgstAmount">400.00</span>
+                </div>
+                <div class="tax-row">
+                    <span>Sub Total</span>
+                    <span id="subTotal">16800.00</span>
+                </div>
+                <div class="tax-row">
+                    <span>Round Off</span>
+                    <span id="adjustment">0.00</span>
+                </div>
+                <div class="tax-row total">
+                    <span>Total Amount</span>
+                    <span id="totalAmount">16800.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Amount in Words -->
+        <div class="amount-words">
+            ₹ <span id="amountInWords">SIXTEEN THOUSAND EIGHT HUNDRED ONLY</span>
+        </div>
+
+        <!-- Bank Details -->
+        <div class="bank-details">
+            <h4>-: BANK DETAILS :-</h4>
+            <div>
+                <div class="bank-item"><strong>A/c No.:</strong> <span id="account1">00341101001074</span></div>
+                <div class="bank-item"><strong>IFSC:</strong> <span id="ifsc1">MSNU0000034</span></div>
+                <div class="bank-item"><strong>Bank:</strong> <span id="bank1">MEHSANA URBAN CO-OP BANK</span></div>
+                <div class="bank-item"><strong>Branch:</strong> <span id="branch1">BHATAR ROAD</span></div>
+            </div>
+            <div>
+                <div class="bank-item"><strong>A/c No.:</strong> <span id="account2">9228329102</span></div>
+                <div class="bank-item"><strong>IFSC:</strong> <span id="ifsc2">KKBK0002875</span></div>
+                <div class="bank-item"><strong>Bank:</strong> <span id="bank2">KOTAK MAHINDRA BANK</span></div>
+                <div class="bank-item"><strong>Branch:</strong> <span id="branch2">WADIWALA COMPLEX</span></div>
+            </div>
+        </div>
+
+        <!-- Additional Info -->
+        <div class="additional-info">
+            <div class="info-box">
+                <strong>NO DYEING GUARANTEE</strong>
+            </div>
+            <div class="info-box">
+                <div><strong>Due Date:</strong> <span id="dueDate">20-11-2025</span></div>
+                <div><strong>Due Days:</strong> <span id="dueDays">0</span></div>
+            </div>
+        </div>
+
+        <!-- Terms and Conditions -->
+        <div class="terms">
+            <h4>TERMS OF SALE:</h4>
+            <p>1) Payment to be made by A/c. payee's cheque/draft only. (2) Any complaint for the goods should be made within 2 days after that no complaint will be entertained. (3) Interest @ 24% per annum will be charged after due date of the bill. (4) We are not responsible for any loss or damage during transit. (5) We reserve the right of recovery at any time before due date. (6) Goods once sold will not be taken back. (7) Do not mix types of lots. (8) Subject to SURAT Jurisdiction.</p>
+        </div>
+
+        <!-- Signature -->
+        <div class="signature-section">
+            <p>FOR SITARAM TEXTILES</p>
+            <br><br>
+            <p>Proprietor/Authorized Person</p>
+        </div>
+
+        <!-- Original/Duplicate Notice -->
+        <div style="text-align: center; margin-top: 15px; font-size: 12px;">
+            <div>Original - For Buyer</div>
+            <div>Duplicate - For Assessee</div>
+        </div>
+    </div>
+
+    <script>
+        // Invoice Data Object - Modify these values to change the invoice
+        const invoiceData = {
+            companyName: "ROOP SHREE DUPATTA HOUSE",
+            pan: "AXCPP2131Q",
+            companyNameAlt: "SITARAM TEXTILES",
+            invoiceNumber: "253",
+            
+            seller: {
+                company: "ROOP SHREE DUPATTA HOUSE",
+                address: "GALI NO.4 BETHAK DELHI SURAT",
+                state: "DELHI",
+                gstin: "07AMEPJ6910A1ZK",
+                stateCode: "07",
+                phone: "9228329102"
+            },
+            
+            buyer: {
+                company: "B 2/10 BHAGAWATI IND SOC.BHESTAN ROAD BHESTAN SURAT",
+                gstin: "24AXCPP2131Q1ZC"
+            },
+            
+            consignee: {
+                address: "GALI NO.4 BETHAK DELHI SURAT",
+                state: "DELHI",
+                gstin: "07AMEPJ6910A1ZK",
+                stateCode: "07"
+            },
+            
+            invoiceDate: "20-11-2025",
+            challanNo: "253",
+            challanDate: "20-11-2025",
+            broker: "NONE",
+            transporter: "",
+            vehicleNo: "",
+            dueDate: "20-11-2025",
+            dueDays: "0",
+            
+            items: [
+                {
+                    sr: 1,
+                    description: "DUPATTA",
+                    hsnCode: "5407",
+                    totalTaka: 16,
+                    meters: 1600.00,
+                    basicRate: 10.00,
+                    totalAmount: 16000.00
+                }
+            ],
+            
+            netRate: 10.50,
+            beforeTax: 16000.00,
+            igst: { percent: 0.00, amount: 0.00 },
+            cgst: { percent: 2.50, amount: 400.00 },
+            sgst: { percent: 2.50, amount: 400.00 },
+            subTotal: 16800.00,
+            adjustment: 0.00,
+            totalAmount: 16800.00,
+            amountInWords: "SIXTEEN THOUSAND EIGHT HUNDRED ONLY",
+            
+            banks: [
+                {
+                    accountNo: "00341101001074",
+                    ifsc: "MSNU0000034",
+                    name: "MEHSANA URBAN CO-OP BANK",
+                    branch: "BHATAR ROAD"
+                },
+                {
+                    accountNo: "9228329102",
+                    ifsc: "KKBK0002875",
+                    name: "KOTAK MAHINDRA BANK",
+                    branch: "WADIWALA COMPLEX"
+                }
+            ]
+        };
+
+        // Function to populate the invoice
+        function populateInvoice(data) {
+            document.getElementById('companyName').textContent = data.companyName;
+            document.getElementById('pan').textContent = data.pan;
+            document.getElementById('companyNameAlt').textContent = data.companyNameAlt;
+            document.getElementById('invoiceNumber').textContent = data.invoiceNumber;
+            
+            document.getElementById('sellerCompany').textContent = data.seller.company;
+            document.getElementById('sellerAddress').textContent = data.seller.address;
+            document.getElementById('sellerState').textContent = data.seller.state;
+            document.getElementById('sellerGSTIN').textContent = data.seller.gstin;
+            document.getElementById('sellerStateCode').textContent = data.seller.stateCode;
+            document.getElementById('sellerPhone').textContent = data.seller.phone;
+            
+            document.getElementById('buyerCompany').textContent = data.buyer.company;
+            document.getElementById('buyerGSTIN').textContent = data.buyer.gstin;
+            
+            document.getElementById('consigneeAddress').textContent = data.consignee.address;
+            document.getElementById('consigneeState').textContent = data.consignee.state;
+            document.getElementById('consigneeGSTIN').textContent = data.consignee.gstin;
+            document.getElementById('consigneeStateCode').textContent = data.consignee.stateCode;
+            
+            document.getElementById('metaInvoiceNo').textContent = data.invoiceNumber;
+            document.getElementById('invoiceDate').textContent = data.invoiceDate;
+            document.getElementById('challanNo').textContent = data.challanNo;
+            document.getElementById('challanDate').textContent = data.challanDate;
+            document.getElementById('broker').textContent = data.broker;
+            document.getElementById('transporter').textContent = data.transporter;
+            document.getElementById('vehicleNo').textContent = data.vehicleNo;
+            document.getElementById('dueDate').textContent = data.dueDate;
+            document.getElementById('dueDays').textContent = data.dueDays;
+            
+            const tbody = document.querySelector('#itemsTable tbody');
+            tbody.innerHTML = '';
+            data.items.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="text-center">${item.sr}</td>
+                    <td>${item.description}</td>
+                    <td class="text-center">${item.hsnCode}</td>
+                    <td class="text-center">${item.totalTaka}</td>
+                    <td class="text-right">${item.meters.toFixed(2)}</td>
+                    <td class="text-right">${item.basicRate.toFixed(2)}</td>
+                    <td class="text-right">${item.totalAmount.toFixed(2)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('netRate').textContent = data.netRate.toFixed(2);
+            document.getElementById('beforeTax').textContent = data.beforeTax.toFixed(2);
+            document.getElementById('igstPercent').textContent = data.igst.percent.toFixed(2);
+            document.getElementById('igstAmount').textContent = data.igst.amount.toFixed(2);
+            document.getElementById('cgstPercent').textContent = data.cgst.percent.toFixed(2);
+            document.getElementById('cgstAmount').textContent = data.cgst.amount.toFixed(2);
+            document.getElementById('sgstPercent').textContent = data.sgst.percent.toFixed(2);
+            document.getElementById('sgstAmount').textContent = data.sgst.amount.toFixed(2);
+            document.getElementById('subTotal').textContent = data.subTotal.toFixed(2);
+            document.getElementById('adjustment').textContent = data.adjustment.toFixed(2);
+            document.getElementById('totalAmount').textContent = data.totalAmount.toFixed(2);
+            document.getElementById('amountInWords').textContent = data.amountInWords;
+            
+            document.getElementById('account1').textContent = data.banks[0].accountNo;
+            document.getElementById('ifsc1').textContent = data.banks[0].ifsc;
+            document.getElementById('bank1').textContent = data.banks[0].name;
+            document.getElementById('branch1').textContent = data.banks[0].branch;
+            
+            document.getElementById('account2').textContent = data.banks[1].accountNo;
+            document.getElementById('ifsc2').textContent = data.banks[1].ifsc;
+            document.getElementById('bank2').textContent = data.banks[1].name;
+            document.getElementById('branch2').textContent = data.banks[1].branch;
+        }
+
+        // Populate the invoice on page load
+        populateInvoice(invoiceData);
+    </script>
+</body>
+</html>

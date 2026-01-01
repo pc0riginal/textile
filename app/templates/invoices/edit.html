@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Invoice #{{ invoice.invoice_no }} - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-3 px-4" x-data="invoiceForm()">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-xl font-bold text-gray-900">Edit Invoice #{{ invoice.invoice_no }}</h1>
+        </div>
+        <a href="/invoices/{{ invoice._id }}" class="px-3 py-1.5 text-xs bg-gray-100 rounded hover:bg-gray-200">Cancel</a>
+    </div>
+
+    <form method="POST" action="/invoices/{{ invoice._id }}/edit" @submit="validateForm" class="bg-white rounded-lg shadow-sm border p-4">
+        <div class="space-y-4">
+            <div>
+                <h3 class="font-semibold text-gray-900 border-b pb-2 text-sm mb-2">Sales Invoice Details</h3>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Company</label>
+                        <input type="text" value="{{ current_company.name }}" readonly class="w-full px-2 py-1.5 text-xs border rounded bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Invoice No. *</label>
+                        <input type="text" name="invoice_no" value="{{ invoice.invoice_no }}" required class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Date *</label>
+                        <input type="date" name="invoice_date" value="{{ invoice.invoice_date.strftime('%Y-%m-%d') if invoice.invoice_date else '' }}" required class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="font-semibold text-gray-900 border-b pb-2 text-sm mb-2">Customer</h3>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Select Party *</label>
+                            <select name="customer_id" x-model="customerId" required class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                                <option value="">Select Customer</option>
+                                {% for customer in customers %}
+                                <option value="{{ customer._id }}" {% if customer._id == invoice.customer_id %}selected{% endif %}>{{ customer.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-3">
+                <h3 class="font-semibold text-gray-900 mb-2 text-sm">➕ Add Item</h3>
+                <div class="grid grid-cols-5 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Quality *</label>
+                        <div class="relative" @click.outside="showQualityDropdown = false">
+                            <input type="text" x-ref="qualityInput" x-model="qualitySearch" @input="filterQualities" @focus="showQualityDropdown = true; filterQualities()" @click="showQualityDropdown = true; filterQualities()" @keydown="handleQualityKeydown($event)" placeholder="Search..." class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                            <div x-show="showQualityDropdown && filteredQualities.length > 0" class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-40 overflow-auto">
+                                <template x-for="(q, idx) in filteredQualities" :key="q">
+                                    <div @click="selectQuality(q)" :class="idx === qualitySelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-xs" x-text="q"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Taka</label>
+                        <input type="number" step="0.01" x-ref="takaInput" x-model="currentItem.total_taka" @keydown.enter.prevent="$refs.metersInput.focus()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Meters *</label>
+                        <input type="number" step="0.01" x-ref="metersInput" x-model="currentItem.meters" @keydown.enter.prevent="$refs.rateInput.focus()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Rate</label>
+                        <input type="number" step="0.01" x-ref="rateInput" x-model="currentItem.rate" @keydown.enter.prevent="addItem()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="button" @click="addItem" class="w-full px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700">➕ Add</button>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="items.length > 0">
+                <h3 class="text-sm font-medium text-gray-900 mb-2">📋 Items (<span x-text="items.length"></span>)</h3>
+                <div class="overflow-auto border rounded">
+                    <table class="w-full text-xs">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="border px-2 py-1">#</th>
+                                <th class="border px-2 py-1">Quality</th>
+                                <th class="border px-2 py-1">Taka</th>
+                                <th class="border px-2 py-1">Meters</th>
+                                <th class="border px-2 py-1">Rate</th>
+                                <th class="border px-2 py-1">Amount</th>
+                                <th class="border px-2 py-1">Del</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(item, idx) in items" :key="idx">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="border px-2 py-1 text-center" x-text="idx + 1"></td>
+                                    <td class="border px-2 py-1" x-text="item.quality"></td>
+                                    <td class="border px-2 py-1 text-right" x-text="item.total_taka"></td>
+                                    <td class="border px-2 py-1 text-right" x-text="item.meters.toFixed(2)"></td>
+                                    <td class="border px-2 py-1 text-right" x-text="'₹' + item.rate_per_meter.toFixed(2)"></td>
+                                    <td class="border px-2 py-1 text-right font-medium" x-text="'₹' + item.amount.toFixed(2)"></td>
+                                    <td class="border px-2 py-1 text-center">
+                                        <button type="button" @click="removeItem(idx)" class="text-red-600 hover:text-red-800">×</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 border rounded p-3">
+                <div class="flex justify-end">
+                    <div class="w-80 space-y-2 text-sm">
+                        <div class="flex justify-between"><span>Subtotal:</span><span x-text="'₹' + subtotal.toFixed(2)"></span></div>
+                        <div class="flex justify-between items-center">
+                            <span>GST %:</span>
+                            <input type="number" step="0.01" x-model="gstPercent" @input="calculateTotal" class="w-20 px-2 py-1 text-xs border rounded">
+                        </div>
+                        <div class="flex justify-between"><span>CGST:</span><span x-text="'₹' + cgst.toFixed(2)"></span></div>
+                        <div class="flex justify-between"><span>SGST:</span><span x-text="'₹' + sgst.toFixed(2)"></span></div>
+                        <div class="flex justify-between"><span>IGST:</span><span x-text="'₹' + igst.toFixed(2)"></span></div>
+                        <div class="flex justify-between font-bold text-base border-t pt-2"><span>Total:</span><span x-text="'₹' + totalAmount.toFixed(2)"></span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4 pt-4 border-t">
+            <button type="submit" class="px-6 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Update Invoice</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function invoiceForm() {
+    return {
+        customerId: '{{ invoice.customer_id }}',
+        items: {{ invoice.get('items', [])|tojson }},
+        currentItem: {quality: '', total_taka: 0, meters: 0, rate: 0},
+        qualitySearch: '',
+        qualities: [],
+        filteredQualities: [],
+        showQualityDropdown: false,
+        qualitySelectedIndex: 0,
+        gstPercent: {{ invoice.get('items', [{}])[0].get('gst_rate', 5) }},
+        subtotal: 0,
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+        gstAmount: 0,
+        totalAmount: 0,
+        
+        async init() {
+            await this.loadQualities();
+            this.calculateTotal();
+        },
+        
+        async loadQualities() {
+            try {
+                const res = await fetch('/qualities/api/list');
+                if (res.ok) {
+                    const data = await res.json();
+                    this.qualities = data.map(q => q.name);
+                    this.filteredQualities = [...this.qualities];
+                }
+            } catch (e) {}
+        },
+        
+        filterQualities() {
+            const search = (this.qualitySearch || '').toLowerCase();
+            if (search) {
+                this.filteredQualities = this.qualities.filter(q => q.toLowerCase().includes(search));
+            } else {
+                this.filteredQualities = [...this.qualities];
+            }
+            this.qualitySelectedIndex = 0;
+        },
+        
+        handleQualityKeydown(e) {
+            if (!this.showQualityDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showQualityDropdown = true;
+                this.filterQualities();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showQualityDropdown) return;
+            
+            const maxIndex = this.filteredQualities.length - 1;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.qualitySelectedIndex = Math.min(this.qualitySelectedIndex + 1, maxIndex);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.qualitySelectedIndex = Math.max(this.qualitySelectedIndex - 1, 0);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.qualitySelectedIndex < this.filteredQualities.length) {
+                        this.selectQuality(this.filteredQualities[this.qualitySelectedIndex]);
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.showQualityDropdown = false;
+                    break;
+            }
+        },
+        
+        selectQuality(q) {
+            this.currentItem.quality = q;
+            this.qualitySearch = q;
+            this.showQualityDropdown = false;
+            this.$refs.takaInput.focus();
+        },
+
+        addItem() {
+            if (!this.currentItem.quality || parseFloat(this.currentItem.meters) <= 0) {
+                alert('⚠️ Please enter quality and meters');
+                return;
+            }
+            const meters = parseFloat(this.currentItem.meters) || 0;
+            const rate = parseFloat(this.currentItem.rate) || 0;
+            const amount = meters * rate;
+            const item = {
+                quality: this.currentItem.quality,
+                total_taka: parseFloat(this.currentItem.total_taka) || 0,
+                meters: meters,
+                rate_per_meter: rate,
+                amount: amount
+            };
+            this.items.push(item);
+            this.currentItem = {quality: '', total_taka: 0, meters: 0, rate: 0};
+            this.qualitySearch = '';
+            this.calculateTotal();
+            this.$refs.qualityInput.focus();
+        },
+        
+        removeItem(idx) {
+            this.items.splice(idx, 1);
+            this.calculateTotal();
+        },
+        
+        calculateTotal() {
+            this.subtotal = this.items.reduce((sum, item) => sum + item.amount, 0);
+            this.gstAmount = this.subtotal * (parseFloat(this.gstPercent) / 100);
+            this.cgst = this.gstAmount / 2;
+            this.sgst = this.gstAmount / 2;
+            this.igst = 0;
+            this.totalAmount = this.subtotal + this.gstAmount;
+        },
+
+        validateForm(e) {
+            if (!this.customerId) {
+                e.preventDefault();
+                alert('Please select a customer');
+                return false;
+            }
+            if (this.items.length === 0) {
+                e.preventDefault();
+                alert('Please add at least one item');
+                return false;
+            }
+            const subtotal = this.items.reduce((sum, item) => sum + item.amount, 0);
+            const gstAmount = subtotal * (this.gstPercent / 100);
+            const cgst = gstAmount / 2;
+            const sgst = gstAmount / 2;
+            const itemsWithGst = this.items.map(item => ({
+                ...item,
+                taxable_amount: item.amount,
+                gst_rate: this.gstPercent,
+                cgst: (item.amount / subtotal) * cgst,
+                sgst: (item.amount / subtotal) * sgst,
+                igst: 0
+            }));
+            const itemsInput = document.createElement('input');
+            itemsInput.type = 'hidden';
+            itemsInput.name = 'items';
+            itemsInput.value = JSON.stringify(itemsWithGst);
+            e.target.appendChild(itemsInput);
+            return true;
+        }
+    }
+}
+</script>
+{% endblock %}

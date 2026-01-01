@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Report Preview - Textile ERP{% endblock %}
+
+{% block content %}
+<div id="preview-content">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <!-- Header -->
+        {% if not request.query_params.get('pdf') %}
+        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 no-print">
+            <h2 class="text-lg font-semibold text-gray-900">Purchase Invoice Report</h2>
+        </div>
+        {% endif %}
+
+        <!-- Report Info -->
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                    <span class="font-medium text-gray-700">Company:</span>
+                    <span class="text-gray-900">{{ current_company.name }}</span>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-700">Supplier:</span>
+                    <span class="text-gray-900">{{ supplier_name }}</span>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-700">Quality:</span>
+                    <span class="text-gray-900">{{ quality }}</span>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-700">Period:</span>
+                    <span class="text-gray-900">{{ fromDate or 'All' }} to {{ toDate or 'All' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Table -->
+        <div class="overflow-x-auto -mx-4 md:mx-0">
+            <table class="w-full text-xs">
+                <thead class="bg-gray-100 border-b border-gray-200">
+                    <tr>
+                        <th class="px-2 py-2 text-left font-medium text-gray-700">Invoice No</th>
+                        <th class="px-2 py-2 text-left font-medium text-gray-700">Date</th>
+                        <th class="px-2 py-2 text-left font-medium text-gray-700">Supplier</th>
+                        <th class="px-2 py-2 text-left font-medium text-gray-700">Broker</th>
+                        <th class="px-2 py-2 text-left font-medium text-gray-700">Quality</th>
+                        <th class="px-2 py-2 text-left font-medium text-gray-700">HSN</th>
+                        <th class="px-2 py-2 text-right font-medium text-gray-700">Qty</th>
+                        <th class="px-2 py-2 text-right font-medium text-gray-700">Rate</th>
+                        <th class="px-2 py-2 text-right font-medium text-gray-700">Amount</th>
+                        <th class="px-2 py-2 text-right font-medium text-gray-700">CGST</th>
+                        <th class="px-2 py-2 text-right font-medium text-gray-700">SGST</th>
+                        <th class="px-2 py-2 text-right font-medium text-gray-700">Total</th>
+                        <th class="px-2 py-2 text-right font-medium text-gray-700">Paid</th>
+                        <th class="px-2 py-2 text-right font-medium text-gray-700">Outstanding</th>
+                        <th class="px-2 py-2 text-left font-medium text-gray-700">Payment Mode</th>
+                        <th class="px-2 py-2 text-center font-medium text-gray-700">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for challan in challans %}
+                        {% set item_count = challan.get('items', []) | length %}
+                        {% for item in challan.get('items', []) %}
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                            {% if loop.first %}
+                            <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.get('invoice_no', '') }}</td>
+                            <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.challan_date.strftime('%d-%m-%Y') if challan.get('challan_date') else '' }}</td>
+                            <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.get('supplier_name', '') }}</td>
+                            <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.get('broker_name', '-') }}</td>
+                            {% endif %}
+                            <td class="px-2 py-2">{{ item.get('quality', '') }}</td>
+                            <td class="px-2 py-2">{{ item.get('hsn', '') }}</td>
+                            <td class="px-2 py-2 text-right">{{ item.get('quantity', 0) }} {{ item.get('unit', '') }}</td>
+                            <td class="px-2 py-2 text-right">₹{{ "{:,.2f}".format(item.get('rate', 0)) }}</td>
+                            <td class="px-2 py-2 text-right">₹{{ "{:,.2f}".format(item.get('amount', 0)) }}</td>
+                            {% if loop.first %}
+                            <td class="px-2 py-2 text-right" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('cgst', 0)) }}</td>
+                            <td class="px-2 py-2 text-right" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('sgst', 0)) }}</td>
+                            <td class="px-2 py-2 text-right font-semibold" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('total_amount', 0)) }}</td>
+                            <td class="px-2 py-2 text-right text-green-600" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('total_paid', 0)) }}</td>
+                            <td class="px-2 py-2 text-right text-red-600" rowspan="{{ item_count }}">₹{{ "{:,.2f}".format(challan.get('outstanding', 0)) }}</td>
+                            <td class="px-2 py-2" rowspan="{{ item_count }}">{{ challan.get('payment_mode', '-') }}</td>
+                            <td class="px-2 py-2 text-center" rowspan="{{ item_count }}">
+                                {% if challan.get('outstanding', 0) == 0 %}
+                                <span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">Paid</span>
+                                {% elif challan.get('total_paid', 0) > 0 %}
+                                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded">Partial</span>
+                                {% else %}
+                                <span class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded">Unpaid</span>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="15" class="px-4 py-8 text-center text-gray-500">No records found</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                {% if challans %}
+                <tfoot class="bg-gray-100 border-t-2 border-gray-300">
+                    <tr>
+                        <td colspan="11" class="px-2 py-2 text-right font-semibold">Grand Total:</td>
+                        <td class="px-2 py-2 text-right font-semibold">
+                            ₹{{ "{:,.2f}".format(challans | sum(attribute='total_amount', start=0)) }}
+                        </td>
+                        <td class="px-2 py-2 text-right font-semibold text-green-600">
+                            ₹{{ "{:,.2f}".format(challans | sum(attribute='total_paid', start=0)) }}
+                        </td>
+                        <td class="px-2 py-2 text-right font-semibold text-red-600">
+                            ₹{{ "{:,.2f}".format(challans | sum(attribute='outstanding', start=0)) }}
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    nav, aside, .no-print { display: none !important; }
+    body { padding: 0 !important; margin: 0 !important; }
+    main { margin: 0 !important; padding: 20px !important; }
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; page-break-after: auto; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+}
+@page {
+    size: A4 landscape;
+    margin: 10mm;
+}
+</style>
+
+{% if request.query_params.get('pdf') %}
+<script>
+window.onload = function() {
+    setTimeout(function() {
+        window.print();
+    }, 500);
+};
+</script>
+{% endif %}
+{% endblock %}

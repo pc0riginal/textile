@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Purchase Invoices - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Purchase Invoices</h1>
+            <p class="text-sm md:text-base text-gray-600">Manage material purchase records</p>
+        </div>
+        <a href="/purchase-invoices/create" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base text-center">
+            New Purchase Invoice
+        </a>
+    </div>
+
+    <!-- Challans Table -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {% if challans %}
+        <!-- Mobile Card View -->
+        <div class="md:hidden divide-y divide-gray-200">
+            {% for challan in challans %}
+            <div class="p-4 hover:bg-gray-50">
+                <div class="flex items-start justify-between mb-2">
+                    <div class="flex-1">
+                        <div class="text-sm font-medium text-gray-900">{{ challan.challan_no }}</div>
+                        <div class="text-xs text-gray-500">{{ challan.challan_date.strftime('%d %b %Y') }}</div>
+                    </div>
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                        {% if challan.status == 'finalized' %}bg-green-100 text-green-800
+                        {% elif challan.status == 'draft' %}bg-yellow-100 text-yellow-800
+                        {% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ challan.status.title() }}
+                    </span>
+                </div>
+                <div class="text-xs text-gray-600 mb-2">{{ challan.supplier_name }}</div>
+                <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+                    <div>
+                        <div class="text-gray-500">Qty/Rate</div>
+                        {% set total_qty = challan.get('items', [])|sum(attribute='quantity') %}
+                        {% set avg_rate = (challan.subtotal / total_qty) if total_qty > 0 else 0 %}
+                        <div class="font-medium">{{ "{:,.2f}".format(total_qty) }} / ₹{{ "{:,.2f}".format(avg_rate) }}</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-500">Amount</div>
+                        <div class="font-medium text-gray-900">₹{{ "{:,.2f}".format(challan.total_amount) }}</div>
+                    </div>
+                    <div class="col-span-2">
+                        <div class="text-gray-500">Outstanding</div>
+                        <div class="font-medium {% if challan.outstanding > 0 %}text-red-600{% else %}text-green-600{% endif %}">₹{{ "{:,.2f}".format(challan.outstanding) }}</div>
+                    </div>
+                </div>
+                <div class="flex gap-2 text-xs">
+                    <a href="/purchase-invoices/{{ challan._id }}" class="text-blue-600 hover:text-blue-900">View</a>
+                    {% if challan.status == 'draft' %}
+                    <a href="/purchase-invoices/{{ challan._id }}/edit" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                    {% endif %}
+                    <a href="/transfers/create?source={{ challan._id }}" class="text-green-600 hover:text-green-900">Transfer</a>
+                    <form method="POST" action="/purchase-invoices/{{ challan._id }}/delete" onsubmit="return confirm('Delete this invoice?');" class="inline">
+                        <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <!-- Desktop Table View -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Details</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity/Rate</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for challan in challans %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ challan.challan_no }}</div>
+                                <div class="text-sm text-gray-500 whitespace-nowrap">{{ challan.challan_date.strftime('%d %b %Y') }}</div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ challan.supplier_name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% set total_qty = challan.get('items', [])|sum(attribute='quantity') %}
+                            {% set avg_rate = (challan.subtotal / total_qty) if total_qty > 0 else 0 %}
+                            <div class="text-sm text-gray-900">
+                                {{ "{:,.2f}".format(total_qty) }} / ₹{{ "{:,.2f}".format(avg_rate) }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">
+                                ₹{{ "{:,.2f}".format(challan.total_amount) }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium {% if challan.outstanding > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                                ₹{{ "{:,.2f}".format(challan.outstanding) }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                {% if challan.status == 'finalized' %}bg-green-100 text-green-800
+                                {% elif challan.status == 'draft' %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ challan.status.title() }}
+                            </span>
+                            {% if challan.get('is_received_via_transfer', False) %}
+                            <div class="text-xs text-blue-600 mt-1">Via Transfer</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex space-x-2">
+                                <a href="/purchase-invoices/{{ challan._id }}" class="text-blue-600 hover:text-blue-900">View</a>
+                                {% if challan.status == 'draft' %}
+                                <a href="/purchase-invoices/{{ challan._id }}/edit" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                {% endif %}
+                                <a href="/transfers/create?source={{ challan._id }}" class="text-green-600 hover:text-green-900">Transfer</a>
+                                <form method="POST" action="/purchase-invoices/{{ challan._id }}/delete" onsubmit="return confirm('Delete this invoice?');" class="inline">
+                                    <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No purchase invoices</h3>
+            <p class="mt-1 text-sm text-gray-500">Get started by creating your first purchase invoice.</p>
+            <div class="mt-6">
+                <a href="/purchase-invoices/create" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                    Create Invoice
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

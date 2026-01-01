@@ -1,0 +1,85 @@
+<aside class="fixed left-0 top-16 bottom-0 w-64 md:w-64 bg-white shadow-2xl md:shadow-sm border-r border-gray-200 overflow-y-auto z-30 transform transition-all duration-300 ease-in-out md:translate-x-0" :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full">
+    <!-- Close button for mobile -->
+    <button @click="sidebarOpen = false" class="md:hidden absolute top-4 right-4 p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors mobile-btn">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+    </button>
+    <nav class="p-4 space-y-2 mt-12 md:mt-0">
+        <!-- Dashboard -->
+        <a href="/dashboard" @click="sidebarOpen = false" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-700 active:scale-95 transition-all mobile-btn {% if request.url.path == '/dashboard' %}bg-blue-50 text-blue-700{% endif %}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+            </svg>
+            <span>Dashboard</span>
+        </a>
+        
+        <!-- Masters -->
+        <div x-data="{ open: true }">
+            <button @click="open = !open" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 7a2 2 0 012-2h10a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                    <span>Masters</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div x-show="open" x-cloak class="ml-8 mt-2 space-y-1">
+                <a href="/companies" @click="sidebarOpen = false" class="block px-3 py-2 text-sm text-gray-600 hover:text-blue-600 active:scale-95 transition-all mobile-btn">Companies</a>
+                <a href="/parties" @click="sidebarOpen = false" class="block px-3 py-2 text-sm text-gray-600 hover:text-blue-600 active:scale-95 transition-all mobile-btn">Parties</a>
+                <a href="/qualities" @click="sidebarOpen = false" class="block px-3 py-2 text-sm text-gray-600 hover:text-blue-600 active:scale-95 transition-all mobile-btn">Qualities</a>
+            </div>
+        </div>
+        
+        <!-- Transactions -->
+        <div x-data="{ open: true }">
+            <button @click="open = !open" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span>Transactions</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div x-show="open" x-cloak class="ml-8 mt-2 space-y-1">
+                <a href="/purchase-invoices" @click="sidebarOpen = false" class="block px-3 py-2 text-sm text-gray-600 hover:text-blue-600 active:scale-95 transition-all mobile-btn">Purchase Invoices</a>
+                <a href="/invoices" @click="sidebarOpen = false" class="block px-3 py-2 text-sm text-gray-600 hover:text-blue-600 active:scale-95 transition-all mobile-btn">Sales Invoices</a>
+                <a href="/transfers" @click="sidebarOpen = false" class="block px-3 py-2 text-sm text-gray-600 hover:text-blue-600 active:scale-95 transition-all mobile-btn">Inventory Transfers</a>
+                <a href="/payments" @click="sidebarOpen = false" class="block px-3 py-2 text-sm text-gray-600 hover:text-blue-600 active:scale-95 transition-all mobile-btn">Payments</a>
+            </div>
+        </div>
+        
+        <!-- Reports -->
+        <div x-data="{ open: true }">
+            <button @click="open = !open" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <span>Reports</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div x-show="open" x-cloak class="ml-8 mt-2 space-y-1">
+                <a href="/invoices/report" @click="sidebarOpen = false" class="block px-3 py-2 text-sm text-gray-600 hover:text-blue-600 active:scale-95 transition-all mobile-btn">Sales Report</a>
+                <a href="/reports/generator" @click="sidebarOpen = false" class="block px-3 py-2 text-sm text-gray-600 hover:text-blue-600 active:scale-95 transition-all mobile-btn">Report Generator</a>
+            </div>
+        </div>
+        
+        <!-- Banking -->
+        <a href="/banking/banks" @click="sidebarOpen = false" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-700 active:scale-95 transition-all mobile-btn">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+            </svg>
+            <span>Banking</span>
+        </a>
+    </nav>
+</aside>

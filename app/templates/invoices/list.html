@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Sales Invoices - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Sales Invoices</h1>
+            <p class="text-sm md:text-base text-gray-600">Manage sales invoices</p>
+        </div>
+        <a href="/invoices/create" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base text-center">
+            Create Invoice
+        </a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {% if invoices %}
+        <!-- Mobile Card View -->
+        <div class="md:hidden divide-y divide-gray-200">
+            {% for invoice in invoices %}
+            <div class="p-4 hover:bg-gray-50">
+                <div class="flex items-start justify-between mb-2">
+                    <div class="flex-1">
+                        <div class="text-sm font-medium text-gray-900">{{ invoice.invoice_no }}</div>
+                        <div class="text-xs text-gray-500">{{ invoice.invoice_date.strftime('%d-%m-%Y') }}</div>
+                    </div>
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {% if invoice.payment_status == 'paid' %}bg-green-100 text-green-800{% elif invoice.payment_status == 'partial' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ invoice.payment_status|title }}
+                    </span>
+                </div>
+                <div class="text-xs text-gray-600 mb-2">{{ invoice.customer_name }}</div>
+                <div class="space-y-1 mb-3">
+                    <div class="text-sm font-medium text-gray-900">Total: ₹{{ "{:,.2f}".format(invoice.total_amount) }}</div>
+                    <div class="text-xs text-green-600">Paid: ₹{{ "{:,.2f}".format(invoice.total_paid or 0) }}</div>
+                    {% if invoice.interest_amount > 0 %}
+                    <div class="text-xs text-orange-600">Interest: ₹{{ "{:,.2f}".format(invoice.interest_amount) }}</div>
+                    {% endif %}
+                    <div class="text-xs text-red-600 font-medium">Outstanding: ₹{{ "{:,.2f}".format(invoice.outstanding) }}</div>
+                </div>
+                <div class="flex gap-2 text-xs">
+                    <a href="/invoices/{{ invoice._id }}" class="text-blue-600 hover:text-blue-900">View</a>
+                    <a href="/invoices/{{ invoice._id }}/print" target="_blank" class="text-green-600 hover:text-green-900">Print</a>
+                    <button onclick="deleteInvoice('{{ invoice._id }}')" class="text-red-600 hover:text-red-900">Delete</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <!-- Desktop Table View -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice No</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Due Days</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Paid</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Interest</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Outstanding</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for invoice in invoices %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ invoice.invoice_no }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ invoice.invoice_date.strftime('%d-%m-%Y') }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ invoice.customer_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">{{ invoice.get('due_days', 0) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">₹{{ "{:,.2f}".format(invoice.total_amount) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 text-right">₹{{ "{:,.2f}".format(invoice.total_paid or 0) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-orange-600 text-right">
+                            {% if invoice.interest_amount > 0 %}
+                            ₹{{ "{:,.2f}".format(invoice.interest_amount) }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium text-right">₹{{ "{:,.2f}".format(invoice.outstanding) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full {% if invoice.payment_status == 'paid' %}bg-green-100 text-green-800{% elif invoice.payment_status == 'partial' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ (invoice.payment_status or 'unpaid')|title }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+                            <a href="/invoices/{{ invoice._id }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>
+                            <a href="/invoices/{{ invoice._id }}/print" target="_blank" class="text-green-600 hover:text-green-900 mr-3">Print</a>
+                            <button onclick="deleteInvoice('{{ invoice._id }}')" class="text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No invoices</h3>
+            <p class="mt-1 text-sm text-gray-500">Get started by creating a new invoice.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function deleteInvoice(invoiceId) {
+    if (confirm('Are you sure you want to delete this invoice?')) {
+        fetch('/invoices/' + invoiceId, {
+            method: 'DELETE'
+        }).then(res => {
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to delete invoice');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
