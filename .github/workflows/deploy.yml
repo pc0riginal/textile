@@ -1,0 +1,27 @@
+name: Deploy to Koyeb
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Koyeb CLI
+        run: curl -fsSL https://raw.githubusercontent.com/koyeb/koyeb-cli/master/install.sh | sh
+      
+      - name: Deploy to Koyeb
+        env:
+          KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
+        run: |
+          cat > ~/.koyeb.yaml << EOF
+          debug: false
+          organization: ""
+          token: $KOYEB_TOKEN
+          url: https://app.koyeb.com
+          EOF
+          /home/runner/.koyeb/bin/koyeb service redeploy representative-ambur/textile
