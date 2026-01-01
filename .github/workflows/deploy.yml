@@ -18,10 +18,12 @@ jobs:
         env:
           KOYEB_TOKEN: ${{ secrets.KOYEB_TOKEN }}
         run: |
-          cat > ~/.koyeb.yaml << EOF
+          echo "Token length: ${#KOYEB_TOKEN}"
+          cat > ~/.koyeb.yaml << 'EOF'
           debug: false
           organization: ""
-          token: $KOYEB_TOKEN
+          token: ${{ secrets.KOYEB_TOKEN }}
           url: https://app.koyeb.com
           EOF
+          cat ~/.koyeb.yaml
           /home/runner/.koyeb/bin/koyeb service redeploy textile/textile
