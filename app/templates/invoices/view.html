@@ -12,7 +12,9 @@
         <div class="flex gap-2">
             <a href="/invoices/{{ invoice._id }}/edit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Edit</a>
             <a href="/invoices/{{ invoice._id }}/print" target="_blank" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Print Invoice</a>
+            {% if invoice.payment_status not in ['paid', 'partial'] %}
             <button onclick="deleteInvoice()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+            {% endif %}
             <a href="/invoices" class="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200">Back</a>
         </div>
     </div>
@@ -86,12 +88,14 @@ function deleteInvoice() {
     if (confirm('Are you sure you want to delete this invoice?')) {
         fetch('/invoices/{{ invoice._id }}', {
             method: 'DELETE'
-        }).then(res => {
-            if (res.ok) {
-                window.location.href = '/invoices';
+        }).then(res => res.json()).then(data => {
+            if (data.error) {
+                alert(data.error);
             } else {
-                alert('Failed to delete invoice');
+                window.location.href = '/invoices';
             }
+        }).catch(() => {
+            alert('Failed to delete invoice');
         });
     }
 }

@@ -523,6 +523,21 @@ async def delete_invoice(
 ):
     from fastapi.responses import JSONResponse
     invoices_collection = await get_collection("sales_invoices")
+    
+    invoice = await invoices_collection.find_one({
+        "_id": ObjectId(invoice_id),
+        **get_company_filter(current_company)
+    })
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    if invoice.get("payment_status") in ["paid", "partial"]:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Cannot delete invoice with payments. Payment status: " + invoice.get("payment_status")}
+        )
+    
     result = await invoices_collection.delete_one({
         "_id": ObjectId(invoice_id),
         **get_company_filter(current_company)

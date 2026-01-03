@@ -57,9 +57,11 @@
                     <a href="/purchase-invoices/{{ challan._id }}/edit" class="text-indigo-600 hover:text-indigo-900">Edit</a>
                     {% endif %}
                     <a href="/transfers/create?source={{ challan._id }}" class="text-green-600 hover:text-green-900">Transfer</a>
+                    {% if challan.payment_status not in ['completed', 'partial'] %}
                     <form method="POST" action="/purchase-invoices/{{ challan._id }}/delete" onsubmit="return confirm('Delete this invoice?');" class="inline">
                         <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
                     </form>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -125,9 +127,11 @@
                                 <a href="/purchase-invoices/{{ challan._id }}/edit" class="text-indigo-600 hover:text-indigo-900">Edit</a>
                                 {% endif %}
                                 <a href="/transfers/create?source={{ challan._id }}" class="text-green-600 hover:text-green-900">Transfer</a>
+                                {% if challan.payment_status not in ['completed', 'partial'] %}
                                 <form method="POST" action="/purchase-invoices/{{ challan._id }}/delete" onsubmit="return confirm('Delete this invoice?');" class="inline">
                                     <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
                                 </form>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>

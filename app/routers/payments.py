@@ -282,20 +282,20 @@ async def create_sales_receipt(
                 if item["invoice_id"] == invoice_id
             )
             
-            # Calculate interest if overdue
+            # Calculate interest on remaining balance if overdue
+            balance = invoice["total_amount"] - total_paid
             interest = 0
-            if invoice.get("due_date") and invoice.get("interest_rate", 0) > 0:
+            if balance > 0 and invoice.get("due_date") and invoice.get("interest_rate", 0) > 0:
                 due_date = invoice["due_date"]
                 today = datetime.now()
                 if today > due_date:
                     overdue_days = (today - due_date).days
-                    interest = (invoice["total_amount"] * invoice["interest_rate"] * overdue_days) / (365 * 100)
+                    interest = (balance * invoice["interest_rate"] * overdue_days) / (365 * 100)
             
-            total_with_interest = invoice["total_amount"] + interest
-            outstanding = total_with_interest - total_paid
+            outstanding = balance + interest
             
-            # Determine payment status (considering interest)
-            if total_paid >= total_with_interest:
+            # Determine payment status
+            if outstanding <= 0.01:  # Allow small rounding differences
                 payment_status = "paid"
             elif total_paid > 0:
                 payment_status = "partial"
