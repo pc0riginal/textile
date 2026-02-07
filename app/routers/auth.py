@@ -16,7 +16,12 @@ templates = Jinja2Templates(directory="app/templates")
 async def login_page(request: Request):
     token = request.cookies.get("access_token")
     if token:
-        return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+        try:
+            from app.auth import verify_token
+            verify_token(token)
+            return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+        except:
+            pass
     return templates.TemplateResponse("auth/login.html", {"request": request})
 
 @router.post("/login")
@@ -60,7 +65,7 @@ async def login(
         key="access_token",
         value=access_token,
         httponly=True,
-        max_age=1800,  # 30 minutes
+        max_age=28800,  # 8 hours
         samesite="lax"
     )
     
@@ -70,7 +75,7 @@ async def login(
             key="current_company_id",
             value=str(user["companies"][0]),
             httponly=True,
-            max_age=1800
+            max_age=28800
         )
     
     return response

@@ -47,7 +47,7 @@ async def list_invoices(
                     interest = (balance * interest_rate * overdue_days) / (365 * 100)
         
         inv["interest_amount"] = interest
-        inv["outstanding"] = (inv["total_amount"] - total_paid) + interest
+        inv["outstanding"] = inv["total_amount"] - total_paid
     
     context.update({
         "invoices": invoices,
@@ -136,7 +136,7 @@ async def sales_report(
     total_paid = sum(inv.get("total_paid", inv.get("paid_amount", 0)) for inv in invoices)
     total_pending = total_sales - total_paid
     total_interest = sum(inv.get("interest_amount", 0) for inv in invoices)
-    total_outstanding = total_pending + total_interest
+    total_outstanding = total_pending
     
     base_filter = get_company_filter(current_company)
     customers = await parties_collection.find({**base_filter, "party_type": {"$in": ["customer", "both"]}}).sort("name", 1).to_list(None) or []

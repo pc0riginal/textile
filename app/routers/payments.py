@@ -66,8 +66,7 @@ async def get_customer_invoices(
                 overdue_days = (today - due_date).days
                 interest = (inv["total_amount"] * inv["interest_rate"] * overdue_days) / (365 * 100)
         
-        total_with_interest = inv["total_amount"] + interest
-        outstanding = total_with_interest - total_paid
+        outstanding = inv["total_amount"] - total_paid
         
         if outstanding > 0:
             result.append({
@@ -76,7 +75,6 @@ async def get_customer_invoices(
                 "invoice_date": inv["invoice_date"].strftime("%Y-%m-%d"),
                 "total_amount": inv["total_amount"],
                 "interest": interest,
-                "total_with_interest": total_with_interest,
                 "total_paid": total_paid,
                 "outstanding": outstanding
             })
@@ -292,7 +290,7 @@ async def create_sales_receipt(
                     overdue_days = (today - due_date).days
                     interest = (balance * invoice["interest_rate"] * overdue_days) / (365 * 100)
             
-            outstanding = balance + interest
+            outstanding = balance
             
             # Determine payment status
             if outstanding <= 0.01:  # Allow small rounding differences

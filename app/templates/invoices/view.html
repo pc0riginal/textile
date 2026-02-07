@@ -42,8 +42,6 @@
                         <th class="px-4 py-2 text-right">Meters</th>
                         <th class="px-4 py-2 text-right">Rate</th>
                         <th class="px-4 py-2 text-right">Amount</th>
-                        <th class="px-4 py-2 text-right">GST %</th>
-                        <th class="px-4 py-2 text-right">Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -53,9 +51,7 @@
                         <td class="px-4 py-2 text-right">{{ item.get('total_taka') }}</td>
                         <td class="px-4 py-2 text-right">{{ "%.2f"|format(item.get('meters', 0)) }}</td>
                         <td class="px-4 py-2 text-right">{{ "%.2f"|format(item.get('rate_per_meter', 0)) }}</td>
-                        <td class="px-4 py-2 text-right">{{ "%.2f"|format(item.get('taxable_amount', 0)) }}</td>
-                        <td class="px-4 py-2 text-right">{{ item.get('gst_rate') }}%</td>
-                        <td class="px-4 py-2 text-right font-medium">₹{{ "%.2f"|format(item.get('taxable_amount', 0) + item.get('cgst', 0) + item.get('sgst', 0) + item.get('igst', 0)) }}</td>
+                        <td class="px-4 py-2 text-right font-medium">₹{{ "%.2f"|format(item.get('taxable_amount', 0)) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
