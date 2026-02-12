@@ -3,134 +3,100 @@
 {% block title %}Purchase Invoices - Textile ERP{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Page Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0">
+<div class="space-y-4">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
             <h1 class="text-xl md:text-2xl font-bold text-gray-900">Purchase Invoices</h1>
-            <p class="text-sm md:text-base text-gray-600">Manage material purchase records</p>
+            <p class="text-sm text-gray-600">Manage material purchase records</p>
         </div>
-        <a href="/purchase-invoices/create" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base text-center">
+        <a href="/purchase-invoices/create" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm text-center">
             New Purchase Invoice
         </a>
     </div>
 
-    <!-- Challans Table -->
+    <!-- Search -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-3 md:p-4">
+        <div class="flex flex-col md:flex-row md:items-end gap-3">
+            {% with placeholder="Search by challan no or supplier...", action="/purchase-invoices" %}
+                {% include 'components/search_bar.html' %}
+            {% endwith %}
+        </div>
+    </div>
+
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {% if challans %}
         <!-- Mobile Card View -->
         <div class="md:hidden divide-y divide-gray-200">
             {% for challan in challans %}
-            <div class="p-4 hover:bg-gray-50">
-                <div class="flex items-start justify-between mb-2">
+            <a href="/purchase-invoices/{{ challan._id }}" class="block p-4 hover:bg-gray-50 active:bg-gray-100">
+                <div class="flex items-start justify-between mb-1">
                     <div class="flex-1">
                         <div class="text-sm font-medium text-gray-900">{{ challan.challan_no }}</div>
                         <div class="text-xs text-gray-500">{{ challan.challan_date.strftime('%d %b %Y') }}</div>
                     </div>
-                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
                         {% if challan.status == 'finalized' %}bg-green-100 text-green-800
-                        {% elif challan.status == 'draft' %}bg-yellow-100 text-yellow-800
+                        {% elif challan.status == 'draft' %}bg-amber-100 text-amber-800
                         {% else %}bg-red-100 text-red-800{% endif %}">
                         {{ challan.status.title() }}
                     </span>
                 </div>
                 <div class="text-xs text-gray-600 mb-2">{{ challan.supplier_name }}</div>
-                <div class="grid grid-cols-2 gap-2 text-xs mb-3">
-                    <div>
-                        <div class="text-gray-500">Qty/Rate</div>
-                        {% set total_qty = challan.get('items', [])|sum(attribute='quantity') %}
-                        {% set avg_rate = (challan.subtotal / total_qty) if total_qty > 0 else 0 %}
-                        <div class="font-medium">{{ "{:,.2f}".format(total_qty) }} / ₹{{ "{:,.2f}".format(avg_rate) }}</div>
-                    </div>
-                    <div>
-                        <div class="text-gray-500">Amount</div>
-                        <div class="font-medium text-gray-900">₹{{ "{:,.2f}".format(challan.total_amount) }}</div>
-                    </div>
-                    <div class="col-span-2">
-                        <div class="text-gray-500">Outstanding</div>
-                        <div class="font-medium {% if challan.outstanding > 0 %}text-red-600{% else %}text-green-600{% endif %}">₹{{ "{:,.2f}".format(challan.outstanding) }}</div>
-                    </div>
+                <div class="flex justify-between text-xs">
+                    <span class="text-gray-900 font-medium">₹{{ "{:,.2f}".format(challan.total_amount) }}</span>
+                    <span class="{% if challan.outstanding > 0 %}text-red-600{% else %}text-green-600{% endif %}">Due: ₹{{ "{:,.2f}".format(challan.outstanding) }}</span>
                 </div>
-                <div class="flex gap-2 text-xs">
-                    <a href="/purchase-invoices/{{ challan._id }}" class="text-blue-600 hover:text-blue-900">View</a>
-                    {% if challan.status == 'draft' %}
-                    <a href="/purchase-invoices/{{ challan._id }}/edit" class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                    {% endif %}
-                    <a href="/transfers/create?source={{ challan._id }}" class="text-green-600 hover:text-green-900">Transfer</a>
-                    {% if challan.payment_status not in ['completed', 'partial'] %}
-                    <form method="POST" action="/purchase-invoices/{{ challan._id }}/delete" onsubmit="return confirm('Delete this invoice?');" class="inline">
-                        <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                    </form>
-                    {% endif %}
-                </div>
-            </div>
+            </a>
             {% endfor %}
         </div>
         <!-- Desktop Table View -->
         <div class="hidden md:block overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 table-striped">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Details</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity/Rate</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice Details</th>
+                        <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
+                        <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Outstanding</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-200">
                     {% for challan in challans %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div>
-                                <div class="text-sm font-medium text-gray-900">{{ challan.challan_no }}</div>
-                                <div class="text-sm text-gray-500 whitespace-nowrap">{{ challan.challan_date.strftime('%d %b %Y') }}</div>
-                            </div>
+                    <tr>
+                        <td class="px-5 py-3 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ challan.challan_no }}</div>
+                            <div class="text-xs text-gray-500">{{ challan.challan_date.strftime('%d %b %Y') }}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ challan.supplier_name }}</div>
+                        <td class="px-5 py-3 whitespace-nowrap text-sm text-gray-900">{{ challan.supplier_name }}</td>
+                        <td class="px-5 py-3 whitespace-nowrap text-sm font-medium text-gray-900 text-right">₹{{ "{:,.2f}".format(challan.total_amount) }}</td>
+                        <td class="px-5 py-3 whitespace-nowrap text-sm font-medium text-right {% if challan.outstanding > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                            ₹{{ "{:,.2f}".format(challan.outstanding) }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% set total_qty = challan.get('items', [])|sum(attribute='quantity') %}
-                            {% set avg_rate = (challan.subtotal / total_qty) if total_qty > 0 else 0 %}
-                            <div class="text-sm text-gray-900">
-                                {{ "{:,.2f}".format(total_qty) }} / ₹{{ "{:,.2f}".format(avg_rate) }}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-gray-900">
-                                ₹{{ "{:,.2f}".format(challan.total_amount) }}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium {% if challan.outstanding > 0 %}text-red-600{% else %}text-green-600{% endif %}">
-                                ₹{{ "{:,.2f}".format(challan.outstanding) }}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                        <td class="px-5 py-3 whitespace-nowrap text-center">
+                            <span class="px-2 py-0.5 text-xs font-semibold rounded-full
                                 {% if challan.status == 'finalized' %}bg-green-100 text-green-800
-                                {% elif challan.status == 'draft' %}bg-yellow-100 text-yellow-800
+                                {% elif challan.status == 'draft' %}bg-amber-100 text-amber-800
                                 {% else %}bg-red-100 text-red-800{% endif %}">
                                 {{ challan.status.title() }}
                             </span>
-                            {% if challan.get('is_received_via_transfer', False) %}
-                            <div class="text-xs text-blue-600 mt-1">Via Transfer</div>
-                            {% endif %}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div class="flex space-x-2">
-                                <a href="/purchase-invoices/{{ challan._id }}" class="text-blue-600 hover:text-blue-900">View</a>
+                        <td class="px-5 py-3 whitespace-nowrap text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                <a href="/purchase-invoices/{{ challan._id }}" class="action-btn text-blue-600" title="View">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                </a>
                                 {% if challan.status == 'draft' %}
-                                <a href="/purchase-invoices/{{ challan._id }}/edit" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                <a href="/purchase-invoices/{{ challan._id }}/edit" class="action-btn text-indigo-600" title="Edit">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </a>
                                 {% endif %}
-                                <a href="/transfers/create?source={{ challan._id }}" class="text-green-600 hover:text-green-900">Transfer</a>
+
                                 {% if challan.payment_status not in ['completed', 'partial'] %}
-                                <form method="POST" action="/purchase-invoices/{{ challan._id }}/delete" onsubmit="return confirm('Delete this invoice?');" class="inline">
-                                    <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                </form>
+                                <button onclick="deleteChallan('{{ challan._id }}')" class="action-btn text-red-500" title="Delete">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
                                 {% endif %}
                             </div>
                         </td>
@@ -139,20 +105,32 @@
                 </tbody>
             </table>
         </div>
+        {% include 'components/pagination.html' %}
         {% else %}
         <div class="text-center py-12">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
-            <h3 class="mt-2 text-sm font-medium text-gray-900">No purchase invoices</h3>
-            <p class="mt-1 text-sm text-gray-500">Get started by creating your first purchase invoice.</p>
-            <div class="mt-6">
-                <a href="/purchase-invoices/create" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                    Create Invoice
-                </a>
-            </div>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">{% if search %}No invoices matching "{{ search }}"{% else %}No purchase invoices{% endif %}</h3>
+            <p class="mt-1 text-sm text-gray-500">{% if search %}Try a different search.{% else %}Get started by creating your first purchase invoice.{% endif %}</p>
         </div>
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function deleteChallan(id) {
+    const ok = await showConfirm('Are you sure you want to delete this purchase invoice?', { title: 'Delete Purchase Invoice', confirmText: 'Delete', danger: true });
+    if (!ok) return;
+    try {
+        showLoading();
+        const res = await fetch('/purchase-invoices/' + id + '/delete', { method: 'POST' });
+        if (res.ok || res.redirected) { showToast('Invoice deleted', 'success'); setTimeout(() => location.reload(), 800); }
+        else { showToast('Failed to delete', 'error'); }
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+    finally { hideLoading(); }
+}
+</script>
 {% endblock %}

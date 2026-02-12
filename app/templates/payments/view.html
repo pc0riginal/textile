@@ -3,30 +3,30 @@
 {% block title %}Payment Details - Textile ERP{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto space-y-6">
-    <div class="flex justify-between items-center">
+<div class="max-w-5xl mx-auto space-y-4">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Payment Details</h1>
-            <p class="text-gray-600">{{ payment.payment_no }}</p>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Payment Details</h1>
+            <p class="text-sm text-gray-600">{{ payment.payment_no }}</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
             {% if payment.payment_type != 'online' %}
-            <button onclick="printCheque()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            <button onclick="printCheque()" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
                 Print Cheque
             </button>
             {% endif %}
-            <button onclick="window.print()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
-                Print Details
+            <button onclick="window.print()" class="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
+                Print
             </button>
             <form method="POST" action="/payments/{{ payment._id }}/delete" class="inline" onsubmit="return confirm('Delete this payment?')">
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
                     Delete
                 </button>
             </form>
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 space-y-4 md:space-y-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
                 <label class="text-xs font-medium text-gray-500">Payment No</label>
@@ -147,11 +147,11 @@
         {% endif %}
     </div>
 
-    <div class="flex justify-between">
-        <a href="/payments" class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
+    <div class="flex flex-col sm:flex-row justify-between gap-2">
+        <a href="/payments" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm text-center">
             Back to Payments
         </a>
-        <a href="/payments/receipt/create" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        <a href="/payments/receipt/create" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm text-center">
             New Payment
         </a>
     </div>

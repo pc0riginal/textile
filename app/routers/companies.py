@@ -1,6 +1,8 @@
+import re
+
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from datetime import datetime
 from bson import ObjectId
 
@@ -66,7 +68,6 @@ async def create_company(
     invoice_series: str = Form("INV"),
     challan_series: str = Form("CH")
 ):
-    import re
     errors = []
     
     # Validate mandatory fields
@@ -76,6 +77,8 @@ async def create_company(
         errors.append("GSTIN is required")
     elif len(gstin.strip()) != 15:
         errors.append("GSTIN must be 15 characters")
+    elif not re.match(r'^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][A-Z\d]$', gstin.strip()):
+        errors.append("Invalid GSTIN format")
     if not address_line1 or not address_line1.strip():
         errors.append("Address line 1 is required")
     if not phone or not phone.strip():
@@ -97,12 +100,21 @@ async def create_company(
     # Validate optional fields if provided
     if pan and len(pan.strip()) != 10:
         errors.append("PAN must be 10 characters")
+    elif pan and not re.match(r'^[A-Z]{5}\d{4}[A-Z]{1}$', pan.strip()):
+        errors.append("Invalid PAN format")
     if email and not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
         errors.append("Invalid email format")
     if phone and not re.match(r'^[0-9]{10}$', phone):
         errors.append("Phone must be exactly 10 digits")
     if pincode and not re.match(r'^[0-9]{6}$', pincode):
         errors.append("Pincode must be 6 digits")
+    
+    # Check duplicate GSTIN
+    if not errors and gstin:
+        companies_collection = await get_collection("companies")
+        existing = await companies_collection.find_one({"gstin": gstin.strip()})
+        if existing:
+            errors.append("A company with this GSTIN already exists")
     
     if errors:
         return templates.TemplateResponse("companies/create.html", {
@@ -192,7 +204,6 @@ async def edit_company(
     phone: str = Form(...),
     email: str = Form(None)
 ):
-    import re
     errors = []
     
     # Validate mandatory fields
@@ -202,6 +213,8 @@ async def edit_company(
         errors.append("GSTIN is required")
     elif len(gstin.strip()) != 15:
         errors.append("GSTIN must be 15 characters")
+    elif not re.match(r'^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][A-Z\d]$', gstin.strip()):
+        errors.append("Invalid GSTIN format")
     if not address_line1 or not address_line1.strip():
         errors.append("Address line 1 is required")
     if not phone or not phone.strip():
@@ -210,6 +223,8 @@ async def edit_company(
     # Validate optional fields if provided
     if pan and len(pan.strip()) != 10:
         errors.append("PAN must be 10 characters")
+    elif pan and not re.match(r'^[A-Z]{5}\d{4}[A-Z]{1}$', pan.strip()):
+        errors.append("Invalid PAN format")
     if email and not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
         errors.append("Invalid email format")
     if phone and not re.match(r'^[0-9]{10}$', phone):
@@ -255,9 +270,6 @@ async def add_financial_year(
     company_id: str = Form(...),
     financial_year: str = Form(...)
 ):
-    import re
-    from fastapi.responses import HTMLResponse
-    
     # Validate financial year
     if not financial_year or not financial_year.strip():
         return HTMLResponse(content=f'<script>alert("Financial year is required"); window.location.href="/dashboard";</script>')

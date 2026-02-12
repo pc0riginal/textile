@@ -5,6 +5,7 @@ from bson import ObjectId
 from datetime import datetime
 from app.dependencies import get_current_user, get_current_company, get_company_filter
 from app.database import get_collection
+from app.services.payment_service import enrich_challans_with_payments, calculate_challan_payments_bulk
 
 templates = Jinja2Templates(directory="app/templates")
 
@@ -81,21 +82,17 @@ async def preview_report(
     challans = await challans_collection.find(query).sort("challan_date", -1).to_list(None)
     payments_collection = await get_collection("payments")
     
+    # Bulk enrich with payment data
+    await enrich_challans_with_payments(challans)
+    
     for challan in challans:
         if challan.get("broker_id"):
             broker = await parties_collection.find_one({"_id": challan["broker_id"]})
             if broker:
                 challan["broker_name"] = broker["name"]
         
+        # Get payment mode details
         existing_payments = await payments_collection.find({"invoices.challan_id": challan["_id"]}).to_list(None)
-        total_paid = sum(
-            inv["amount"] for p in existing_payments 
-            for inv in p.get("invoices", []) 
-            if inv["challan_id"] == challan["_id"]
-        )
-        challan["total_paid"] = total_paid
-        challan["outstanding"] = challan.get("total_amount", 0) - total_paid
-        
         payment_details = []
         for p in existing_payments:
             for inv in p.get("invoices", []):
@@ -120,7 +117,8 @@ async def preview_report(
         "quality": quality or "All",
         "fromDate": fromDate,
         "toDate": toDate,
-        "filter": filter
+        "filter": filter,
+        "generated_at": datetime.utcnow().strftime('%d-%m-%Y %H:%M'),
     })
 
 @router.get("/preview-inline", response_class=HTMLResponse)
@@ -156,21 +154,17 @@ async def preview_inline(
     
     challans = await challans_collection.find(query).sort("challan_date", -1).to_list(None)
     
+    # Bulk enrich with payment data
+    await enrich_challans_with_payments(challans)
+    
     for challan in challans:
         if challan.get("broker_id"):
             broker = await parties_collection.find_one({"_id": challan["broker_id"]})
             if broker:
                 challan["broker_name"] = broker["name"]
         
+        # Get payment mode details
         existing_payments = await payments_collection.find({"invoices.challan_id": challan["_id"]}).to_list(None)
-        total_paid = sum(
-            inv["amount"] for p in existing_payments 
-            for inv in p.get("invoices", []) 
-            if inv["challan_id"] == challan["_id"]
-        )
-        challan["total_paid"] = total_paid
-        challan["outstanding"] = challan.get("total_amount", 0) - total_paid
-        
         payment_details = []
         for p in existing_payments:
             for inv in p.get("invoices", []):

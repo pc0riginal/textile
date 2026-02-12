@@ -3,15 +3,15 @@
 {% block title %}Payment Entry - Textile ERP{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto space-y-6" x-data="paymentForm()">
+<div class="max-w-6xl mx-auto space-y-4" x-data="paymentForm()">
     <!-- Page Header -->
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Payment Entry</h1>
-        <p class="text-gray-600">Record supplier payment with invoice settlement</p>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900">Payment Entry</h1>
+        <p class="text-sm text-gray-600">Record supplier payment with invoice settlement</p>
     </div>
 
     <!-- Form -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
         {% if error %}
         <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
             {{ error }}
@@ -250,6 +250,7 @@ function paymentForm() {
         filteredBanks: [],
         showBankDropdown: false,
         selectedBank: '',
+        selectedBankId: '',
         bankSelectedIndex: 0,
         newBank: {
             bank_name: '',
@@ -307,8 +308,10 @@ function paymentForm() {
         
         selectBank(bank) {
             this.selectedBank = bank.bank_name;
+            this.selectedBankId = bank._id || '';
             this.bankSearch = bank.bank_name + ' - ' + bank.account_number;
             this.showBankDropdown = false;
+            this.fetchChequeNo();
         },
         
         openBankModal() {
@@ -342,7 +345,20 @@ function paymentForm() {
         togglePaymentFields() {
             if (this.paymentType === 'online') {
                 document.getElementById('cheque_no').value = '';
+            } else if (this.paymentType === 'cheque') {
+                this.fetchChequeNo();
             }
+        },
+
+        async fetchChequeNo() {
+            if (this.paymentType !== 'cheque' || !this.selectedBankId) return;
+            try {
+                var resp = await fetch('/banking/api/next-cheque?bank_id=' + this.selectedBankId);
+                var data = await resp.json();
+                if (data.next_cheque_no) {
+                    document.getElementById('cheque_no').value = data.next_cheque_no;
+                }
+            } catch(e) {}
         },
         
         toggleInvoice(inv) {

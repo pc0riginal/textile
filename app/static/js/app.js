@@ -1,205 +1,80 @@
-// Utility functions for the Textile ERP application
+// ── Textile ERP — Core UI Utilities ──────────────────────────────────────────
 
-// Show loading overlay
-function showLoading() {
-    document.getElementById('loading-overlay').classList.remove('hidden');
-    document.getElementById('loading-overlay').classList.add('flex');
-}
-
-// Hide loading overlay
-function hideLoading() {
-    document.getElementById('loading-overlay').classList.add('hidden');
-    document.getElementById('loading-overlay').classList.remove('flex');
-}
-
-// Show toast notification
+// ── Toast Notifications ─────────────────────────────────────────────────────
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
-    
-    const bgColor = {
-        'success': 'bg-green-500',
-        'error': 'bg-red-500',
-        'warning': 'bg-yellow-500',
-        'info': 'bg-blue-500'
-    }[type] || 'bg-blue-500';
-    
-    toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+
+    const styles = {
+        success: { bg: 'bg-green-600', icon: '✓' },
+        error:   { bg: 'bg-red-600',   icon: '✕' },
+        warning: { bg: 'bg-amber-500',  icon: '⚠' },
+        info:    { bg: 'bg-blue-600',   icon: 'ℹ' },
+    };
+    const s = styles[type] || styles.info;
+
+    toast.className = `${s.bg} text-white pl-4 pr-3 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[280px] max-w-sm transform transition-all duration-300 translate-x-[120%] opacity-0`;
     toast.innerHTML = `
-        <div class="flex items-center justify-between">
-            <span>${message}</span>
-            <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-    `;
-    
+        <span class="text-lg leading-none">${s.icon}</span>
+        <span class="flex-1 text-sm">${message}</span>
+        <button onclick="this.closest('.toast-item').remove()" class="text-white/70 hover:text-white ml-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>`;
+    toast.classList.add('toast-item');
     container.appendChild(toast);
-    
-    // Animate in
+
+    requestAnimationFrame(() => {
+        toast.classList.remove('translate-x-[120%]', 'opacity-0');
+    });
+
     setTimeout(() => {
-        toast.classList.remove('translate-x-full');
-    }, 100);
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        toast.classList.add('translate-x-full');
-        setTimeout(() => {
-            if (toast.parentElement) {
-                toast.remove();
-            }
-        }, 300);
-    }, 5000);
+        toast.classList.add('translate-x-[120%]', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
 }
 
-// Format currency
+// ── Confirm Dialog (replaces browser confirm()) ─────────────────────────────
+function showConfirm(message, { title = 'Confirm', confirmText = 'Yes, proceed', cancelText = 'Cancel', danger = false } = {}) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('confirm-overlay');
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-message').textContent = message;
+        const btn = document.getElementById('confirm-yes');
+        btn.textContent = confirmText;
+        btn.className = `px-4 py-2 text-sm font-medium text-white rounded-lg ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`;
+        document.getElementById('confirm-cancel').textContent = cancelText;
+
+        function cleanup(result) {
+            overlay.classList.add('hidden');
+            btn.removeEventListener('click', onYes);
+            document.getElementById('confirm-cancel').removeEventListener('click', onNo);
+            resolve(result);
+        }
+        function onYes() { cleanup(true); }
+        function onNo()  { cleanup(false); }
+
+        btn.addEventListener('click', onYes);
+        document.getElementById('confirm-cancel').addEventListener('click', onNo);
+        overlay.classList.remove('hidden');
+    });
+}
+
+// ── Loading Overlay ─────────────────────────────────────────────────────────
+function showLoading() {
+    const el = document.getElementById('loading-overlay');
+    el.classList.remove('hidden');
+    el.classList.add('flex');
+}
+function hideLoading() {
+    const el = document.getElementById('loading-overlay');
+    el.classList.add('hidden');
+    el.classList.remove('flex');
+}
+
+// ── Format Helpers ──────────────────────────────────────────────────────────
 function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR'
-    }).format(amount);
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(amount);
 }
-
-// Format number with commas
 function formatNumber(num) {
     return new Intl.NumberFormat('en-IN').format(num);
-}
-
-// Auto-calculate totals in forms
-function calculateTotals() {
-    const rows = document.querySelectorAll('.item-row');
-    let grandTotal = 0;
-    
-    rows.forEach(row => {
-        const boxes = parseFloat(row.querySelector('.boxes')?.value || 0);
-        const metersPerBox = parseFloat(row.querySelector('.meters-per-box')?.value || 0);
-        const rate = parseFloat(row.querySelector('.rate')?.value || 0);
-        
-        const totalMeters = boxes * metersPerBox;
-        const amount = totalMeters * rate;
-        
-        const totalMetersField = row.querySelector('.total-meters');
-        const amountField = row.querySelector('.amount');
-        
-        if (totalMetersField) totalMetersField.value = totalMeters.toFixed(2);
-        if (amountField) amountField.value = amount.toFixed(2);
-        
-        grandTotal += amount;
-    });
-    
-    const grandTotalField = document.getElementById('grand-total');
-    if (grandTotalField) {
-        grandTotalField.textContent = formatCurrency(grandTotal);
-    }
-}
-
-// Add new row to item table
-function addItemRow() {
-    const tbody = document.querySelector('#items-table tbody');
-    const rowCount = tbody.children.length;
-    
-    const newRow = document.createElement('tr');
-    newRow.className = 'item-row';
-    newRow.innerHTML = `
-        <td class="px-4 py-2">
-            <input type="text" name="items[${rowCount}][quality]" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Quality/Type">
-        </td>
-        <td class="px-4 py-2">
-            <input type="number" name="items[${rowCount}][boxes]" class="boxes w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" onchange="calculateTotals()">
-        </td>
-        <td class="px-4 py-2">
-            <input type="number" step="0.01" name="items[${rowCount}][meters_per_box]" class="meters-per-box w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00" onchange="calculateTotals()">
-        </td>
-        <td class="px-4 py-2">
-            <input type="number" step="0.01" name="items[${rowCount}][total_meters]" class="total-meters w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50" readonly>
-        </td>
-        <td class="px-4 py-2">
-            <input type="number" step="0.01" name="items[${rowCount}][rate_per_meter]" class="rate w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00" onchange="calculateTotals()">
-        </td>
-        <td class="px-4 py-2">
-            <input type="number" step="0.01" name="items[${rowCount}][amount]" class="amount w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50" readonly>
-        </td>
-        <td class="px-4 py-2">
-            <button type="button" onclick="this.closest('tr').remove(); calculateTotals();" class="text-red-600 hover:text-red-800">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-            </button>
-        </td>
-    `;
-    
-    tbody.appendChild(newRow);
-}
-
-// Initialize date pickers
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Flatpickr for date inputs
-    flatpickr('.date-picker', {
-        dateFormat: 'Y-m-d',
-        defaultDate: 'today'
-    });
-    
-    // Initialize auto-calculation for existing rows
-    calculateTotals();
-});
-
-// Party search functionality
-function initPartySearch(inputId, resultsId) {
-    const input = document.getElementById(inputId);
-    const results = document.getElementById(resultsId);
-    
-    if (!input || !results) return;
-    
-    let timeout;
-    
-    input.addEventListener('input', function() {
-        clearTimeout(timeout);
-        const query = this.value.trim();
-        
-        if (query.length < 2) {
-            results.classList.add('hidden');
-            return;
-        }
-        
-        timeout = setTimeout(async () => {
-            try {
-                const response = await fetch(`/api/parties/search?q=${encodeURIComponent(query)}`);
-                const parties = await response.json();
-                
-                results.innerHTML = '';
-                
-                if (parties.length === 0) {
-                    results.innerHTML = '<div class="px-4 py-2 text-gray-500">No parties found</div>';
-                } else {
-                    parties.forEach(party => {
-                        const div = document.createElement('div');
-                        div.className = 'px-4 py-2 hover:bg-gray-100 cursor-pointer';
-                        div.innerHTML = `
-                            <div class="font-medium">${party.name}</div>
-                            <div class="text-sm text-gray-500">${party.party_type} • ${party.contact.phone}</div>
-                        `;
-                        div.addEventListener('click', () => {
-                            input.value = party.name;
-                            input.dataset.partyId = party.id;
-                            results.classList.add('hidden');
-                        });
-                        results.appendChild(div);
-                    });
-                }
-                
-                results.classList.remove('hidden');
-            } catch (error) {
-                console.error('Error searching parties:', error);
-            }
-        }, 300);
-    });
-    
-    // Hide results when clicking outside
-    document.addEventListener('click', function(e) {
-        if (!input.contains(e.target) && !results.contains(e.target)) {
-            results.classList.add('hidden');
-        }
-    });
 }

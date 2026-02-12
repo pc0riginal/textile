@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Print Cheque - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4 md:space-y-6 px-2 md:px-0">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Print Cheque</h1>
+            <p class="text-sm text-gray-600">Fill in details and print on a blank cheque leaf</p>
+        </div>
+        <a href="/banking/passbook{% if bank_id %}?bank_id={{ bank_id }}{% endif %}" class="px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm text-center">Back to Passbook</a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border p-4 md:p-6">
+        <form id="chequeForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Bank Account</label>
+                    <select id="chqBankId" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- Select Bank --</option>
+                        {% for bank in banks %}
+                        <option value="{{ bank._id }}" {% if bank_id and bank._id|string == bank_id %}selected{% endif %}
+                            data-bank-name="{{ bank.bank_name }}" data-branch="{{ bank.branch or '' }}" data-ifsc="{{ bank.ifsc_code }}" data-acno="{{ bank.account_number }}">
+                            {{ bank.bank_name }} - {{ bank.account_number }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <input type="date" id="chqDate" value="{{ cheque_date or '' }}" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Pay To (Self / Party Name)</label>
+                    <input type="text" id="chqPayee" value="{{ payee }}" placeholder="SELF or party name" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
+                    <input type="number" id="chqAmount" value="{{ amount if amount > 0 else '' }}" min="1" step="0.01" placeholder="0.00" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cheque No</label>
+                    <input type="text" id="chqNo" value="{{ cheque_no }}" placeholder="Optional" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Bill / Reference No</label>
+                    <input type="text" id="chqBillNo" value="" placeholder="Optional" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="flex gap-3 pt-3 border-t">
+                <button type="button" onclick="printCheque()" class="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    Print Cheque
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function printCheque() {
+    var payee = (document.getElementById('chqPayee').value || '').trim();
+    var amount = parseFloat(document.getElementById('chqAmount').value) || 0;
+    var dateVal = document.getElementById('chqDate').value || '';
+    var billNo = (document.getElementById('chqBillNo').value || '').trim();
+
+    if (!payee) { alert('Please enter payee name'); return; }
+    if (amount <= 0) { alert('Please enter a valid amount'); return; }
+
+    var amountWords = numberToWords(amount);
+    var formattedDate = dateVal ? formatDateForCheque(dateVal) : '';
+    var formattedAmount = formatIndianNumber(amount);
+
+    var printWindow = window.open('', '_blank');
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cheque Print</title>' +
+        '<style>*{margin:0;padding:0;box-sizing:border-box}' +
+        'body{font-family:Arial,sans-serif;padding:0;background:white;margin:0}' +
+        '.cheque-container{width:202mm;height:92mm;margin:0 auto;background:white;position:relative}' +
+        '.ac-payee{position:absolute;top:12mm;left:80mm;font-size:10px;font-weight:bold;border:2px solid #000;padding:2px 6px}' +
+        '.cheque-date{position:absolute;top:11mm;right:10mm;font-size:16px;font-weight:bold;letter-spacing:2.7mm;font-family:"Courier New",monospace}' +
+        '.payee-name{position:absolute;top:23mm;font-size:20px;font-weight:bold;max-width:150mm;line-height:1.3}' +
+        '.amount-words{text-wrap:auto;position:absolute;top:35mm;left:10mm;font-size:17px;font-weight:600;max-width:130mm;line-height:1.4;text-transform:capitalize}' +
+        '.amount-figures{position:absolute;top:40mm;left:20mm;right:10mm;font-size:16px;font-weight:bold;font-family:"Courier New",monospace;padding:2mm 3mm;min-width:40mm;text-align:right;color:#000}' +
+        '.bill-number{position:absolute;bottom:10mm;left:40%;transform:translateX(-50%);font-size:11px}' +
+        '@media print{body{margin:0;padding:0}@page{size:202mm 92mm;margin:0}.cheque-container{page-break-after:always;margin:0}}' +
+        '</style></head><body>' +
+        '<div class="cheque-container">' +
+        '<div class="ac-payee">A/C PAYEE</div>' +
+        '<div class="cheque-date">' + formattedDate + '</div>' +
+        '<div class="payee-name">**' + payee + '**</div>' +
+        '<div class="amount-words">**' + amountWords + ' Only**</div>' +
+        '<div class="amount-figures">**' + formattedAmount + '**</div>' +
+        (billNo ? '<div class="bill-number">Bill No: ' + billNo + '</div>' : '') +
+        '</div>' +
+        '<script>setTimeout(()=>window.print(),500);<\/script>' +
+        '</body></html>';
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+}
+
+function formatDateForCheque(dateStr) {
+    var date = new Date(dateStr);
+    var day = String(date.getDate()).padStart(2, '0');
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var year = String(date.getFullYear());
+    return (day + month + year).split('').join('');
+}
+
+function formatIndianNumber(num) {
+    var parts = num.toFixed(2).split('.');
+    var integer = parts[0];
+    var decimal = parts[1];
+    var lastThree = integer.substring(integer.length - 3);
+    var otherNumbers = integer.substring(0, integer.length - 3);
+    if (otherNumbers !== '') {
+        lastThree = ',' + lastThree;
+    }
+    return otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree + '.' + decimal;
+}
+
+function numberToWords(num) {
+    var ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    var tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    var teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+
+    if (num === 0) return 'Zero';
+
+    function convertHundreds(n) {
+        var str = '';
+        if (n > 99) {
+            str += ones[Math.floor(n / 100)] + ' Hundred ';
+            n %= 100;
+            if (n > 0) str += 'And ';
+        }
+        if (n > 19) {
+            str += tens[Math.floor(n / 10)] + ' ';
+            n %= 10;
+        }
+        if (n > 9) {
+            str += teens[n - 10] + ' ';
+            return str;
+        }
+        if (n > 0) {
+            str += ones[n] + ' ';
+        }
+        return str;
+    }
+
+    var n = Math.floor(num);
+    var crores = Math.floor(n / 10000000);
+    n %= 10000000;
+    var lakhs = Math.floor(n / 100000);
+    n %= 100000;
+    var thousands = Math.floor(n / 1000);
+    n %= 1000;
+    var remainder = n;
+
+    var result = '';
+    if (crores > 0) result += convertHundreds(crores) + 'Crore ';
+    if (lakhs > 0) result += convertHundreds(lakhs) + 'Lakh ';
+    if (thousands > 0) result += convertHundreds(thousands) + 'Thousand ';
+    if (remainder > 0) result += convertHundreds(remainder);
+
+    return result.trim();
+}
+
+// Auto-print if all fields are pre-filled (coming from entry form redirect)
+document.addEventListener('DOMContentLoaded', function() {
+    var payee = document.getElementById('chqPayee').value.trim();
+    var amount = parseFloat(document.getElementById('chqAmount').value) || 0;
+    if (payee && amount > 0) {
+        // Small delay to let the page render, then auto-open print popup
+        setTimeout(function() { printCheque(); }, 300);
+    }
+});
+</script>
+{% endblock %}

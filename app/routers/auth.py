@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Request, Form, HTTPException, status, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
@@ -5,9 +6,10 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 
 from app.database import get_collection
-from app.auth import verify_password, get_password_hash, create_access_token
+from app.auth import verify_password, get_password_hash, create_access_token, verify_token
 from app.models.user import UserCreate, UserLogin
 from app.services.audit_service import AuditService
+from config import settings
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -17,10 +19,9 @@ async def login_page(request: Request):
     token = request.cookies.get("access_token")
     if token:
         try:
-            from app.auth import verify_token
             verify_token(token)
             return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
-        except:
+        except Exception:
             pass
     return templates.TemplateResponse("auth/login.html", {"request": request})
 
@@ -60,13 +61,15 @@ async def login(
     access_token = create_access_token(data={"sub": user["username"]})
     
     # Set cookie and redirect
+    is_production = os.getenv("ENV", "development") == "production"
     response = RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        max_age=28800,  # 8 hours
-        samesite="lax"
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite="lax",
+        secure=is_production
     )
     
     # Set current company if user has companies
@@ -75,13 +78,20 @@ async def login(
             key="current_company_id",
             value=str(user["companies"][0]),
             httponly=True,
-            max_age=28800
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            samesite="lax",
+            secure=is_production
         )
     
     return response
 
 @router.get("/register")
 async def register_page(request: Request):
+    """Account setup — only allowed if no user exists yet (first-time setup)."""
+    users_collection = await get_collection("users")
+    user_count = await users_collection.count_documents({})
+    if user_count > 0:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("auth/register.html", {"request": request})
 
 @router.post("/register")
@@ -91,28 +101,20 @@ async def register(
     email: str = Form(...),
     password: str = Form(...),
     full_name: str = Form(...),
-    role: str = Form(default="accountant")
 ):
     users_collection = await get_collection("users")
-    
-    # Check if user exists
-    existing_user = await users_collection.find_one({
-        "$or": [{"username": username}, {"email": email}]
-    })
-    
-    if existing_user:
-        return templates.TemplateResponse(
-            "auth/register.html",
-            {"request": request, "error": "Username or email already exists"}
-        )
-    
-    # Create user
+
+    # Block if a user already exists — single-tenant, one user per instance
+    user_count = await users_collection.count_documents({})
+    if user_count > 0:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_302_FOUND)
+
+    # Create the sole user for this instance
     user_data = {
         "username": username,
         "email": email,
         "password_hash": get_password_hash(password),
         "full_name": full_name,
-        "role": role,
         "is_active": True,
         "companies": [],
         "created_at": datetime.utcnow(),

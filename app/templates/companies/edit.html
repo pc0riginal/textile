@@ -101,6 +101,10 @@ function validateForm() {
         showError('name', 'Company name is required');
         isValid = false;
         if (!firstError) firstError = name;
+    } else if (/^\d+$/.test(name.value.trim())) {
+        showError('name', 'Company name must contain letters');
+        isValid = false;
+        if (!firstError) firstError = name;
     }
     
     const gstin = document.getElementById('gstin');
@@ -112,11 +116,19 @@ function validateForm() {
         showError('gstin', 'GSTIN must be exactly 15 characters');
         isValid = false;
         if (!firstError) firstError = gstin;
+    } else if (!/^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][A-Z\d]$/.test(gstin.value)) {
+        showError('gstin', 'Invalid GSTIN format (e.g. 22AAAAA0000A1Z5)');
+        isValid = false;
+        if (!firstError) firstError = gstin;
     }
     
     const pan = document.getElementById('pan');
     if (pan.value && pan.value.length !== 10) {
         showError('pan', 'PAN must be exactly 10 characters');
+        isValid = false;
+        if (!firstError) firstError = pan;
+    } else if (pan.value && !/^[A-Z]{5}\d{4}[A-Z]$/.test(pan.value)) {
+        showError('pan', 'Invalid PAN format (e.g. AAAAA0000A)');
         isValid = false;
         if (!firstError) firstError = pan;
     }

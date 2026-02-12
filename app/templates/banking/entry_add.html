@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Add Passbook Entry - Textile ERP{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Add Passbook Entry</h1>
+            <p class="text-sm text-gray-600">Record a direct bank transaction (non-invoice)</p>
+        </div>
+        <a href="/banking/passbook{% if bank_id %}?bank_id={{ bank_id }}{% endif %}" class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm text-center">Back to Passbook</a>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border p-4 md:p-6">
+        <form method="POST" action="/banking/entry/add" class="space-y-4" id="entryForm">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Bank Account -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Bank Account *</label>
+                    <select name="bank_id" id="bankSelect" required class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Select Bank --</option>
+                        {% for bank in banks %}
+                        <option value="{{ bank._id }}" {% if bank_id and bank._id|string == bank_id %}selected{% endif %}>
+                            {{ bank.bank_name }} - {{ bank.account_number }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Credit / Debit -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+                    <select name="txn_type" required class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="txnType">
+                        <option value="debit">Debit (Payment Out)</option>
+                        <option value="credit">Credit (Money In)</option>
+                    </select>
+                </div>
+
+                <!-- Online Y/N -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Online *</label>
+                    <select name="is_online" id="isOnline" required class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="Y">Yes (Online / NEFT / RTGS)</option>
+                        <option value="N">No (Cheque)</option>
+                    </select>
+                </div>
+
+                <!-- Date -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                    <input type="date" name="date" required value="{{ today }}" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <!-- Particulars -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Particulars *</label>
+                    <input type="text" name="particulars" required placeholder="e.g. SELF, DGVCL, CREDIT CARD BILL" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" list="commonParticulars">
+                    <datalist id="commonParticulars">
+                        <option value="SELF">
+                        <option value="CASH DEPOSIT">
+                        <option value="CASH WITHDRAWAL">
+                        <option value="INTEREST">
+                        <option value="BANK CHARGES">
+                        <option value="CREDIT CARD BILL">
+                        <option value="ELECTRICITY BILL">
+                        <option value="TELEPHONE BILL">
+                        <option value="INSURANCE">
+                        <option value="RENT">
+                        <option value="SALARY">
+                        <option value="TDS">
+                        <option value="GST PAYMENT">
+                    </datalist>
+                </div>
+
+                <!-- Amount -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                    <input type="number" name="amount" required min="0.01" step="0.01" placeholder="0.00" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <!-- Invoice No (optional) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Invoice No (if applicable)</label>
+                    <input type="text" name="invoice_no" placeholder="Optional" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <!-- Cheque No (shown for offline, auto-filled) -->
+                <div id="chequeNoRow">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cheque No</label>
+                    <input type="text" name="cheque_no" id="chequeNo" placeholder="Auto-assigned for cheque" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" readonly>
+                    <p class="text-xs text-gray-500 mt-1" id="chequeHint"></p>
+                </div>
+
+                <!-- Remarks -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                    <input type="text" name="remarks" placeholder="Optional notes" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+
+            <!-- Cheque info banner -->
+            <div id="chequeBanner" class="hidden p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-800">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    <span>Cheque No <strong id="chequeBannerNo"></strong> will be assigned. After saving, you'll be taken to the cheque print page.</span>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t">
+                <a href="/banking/passbook{% if bank_id %}?bank_id={{ bank_id }}{% endif %}" class="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</a>
+                <button type="submit" id="submitBtn" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Add Entry</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+var isOnlineEl = document.getElementById('isOnline');
+var bankSelectEl = document.getElementById('bankSelect');
+var chequeNoEl = document.getElementById('chequeNo');
+var chequeNoRow = document.getElementById('chequeNoRow');
+var chequeBanner = document.getElementById('chequeBanner');
+var chequeBannerNo = document.getElementById('chequeBannerNo');
+var chequeHint = document.getElementById('chequeHint');
+var submitBtn = document.getElementById('submitBtn');
+var chequeCache = {};
+
+async function fetchNextCheque(bankId) {
+    if (!bankId) return null;
+    if (chequeCache[bankId] !== undefined) return chequeCache[bankId];
+    try {
+        var resp = await fetch('/banking/api/next-cheque?bank_id=' + bankId);
+        var data = await resp.json();
+        chequeCache[bankId] = data.next_cheque_no;
+        return data.next_cheque_no;
+    } catch(e) { return null; }
+}
+
+async function updateChequeUI() {
+    var isOffline = isOnlineEl.value === 'N';
+    var bankId = bankSelectEl.value;
+
+    if (isOffline && bankId) {
+        chequeNoRow.style.display = '';
+        chequeNoEl.value = '';
+        chequeHint.textContent = 'Loading...';
+        var nextNo = await fetchNextCheque(bankId);
+        if (nextNo) {
+            chequeNoEl.value = nextNo;
+            chequeNoEl.classList.add('bg-gray-50');
+            chequeNoEl.readOnly = true;
+            chequeHint.textContent = 'Auto-assigned. Set starting number in Bank Account settings.';
+            chequeBanner.classList.remove('hidden');
+            chequeBannerNo.textContent = '#' + nextNo;
+        } else {
+            chequeNoEl.classList.remove('bg-gray-50');
+            chequeNoEl.readOnly = false;
+            chequeNoEl.placeholder = 'Enter cheque number';
+            chequeHint.textContent = 'No cheque sequence found. Set starting number in Bank Account edit page, or enter manually.';
+            chequeBanner.classList.add('hidden');
+        }
+        submitBtn.textContent = 'Add Entry & Print Cheque';
+        submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        submitBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+    } else if (isOffline && !bankId) {
+        chequeNoRow.style.display = '';
+        chequeNoEl.value = '';
+        chequeNoEl.readOnly = true;
+        chequeHint.textContent = 'Select a bank account first.';
+        chequeBanner.classList.add('hidden');
+        submitBtn.textContent = 'Add Entry & Print Cheque';
+        submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        submitBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+    } else {
+        chequeNoRow.style.display = 'none';
+        chequeNoEl.value = '';
+        chequeBanner.classList.add('hidden');
+        submitBtn.textContent = 'Add Entry';
+        submitBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+        submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    }
+}
+
+isOnlineEl.addEventListener('change', function() { chequeCache = {}; updateChequeUI(); });
+bankSelectEl.addEventListener('change', function() { chequeCache = {}; updateChequeUI(); });
+
+updateChequeUI();
+
+document.getElementById('entryForm').addEventListener('submit', function(e) {
+    var amt = parseFloat(document.querySelector('[name="amount"]').value);
+    if (!amt || amt <= 0) {
+        e.preventDefault();
+        alert('Please enter a valid amount');
+    }
+});
+</script>
+{% endblock %}

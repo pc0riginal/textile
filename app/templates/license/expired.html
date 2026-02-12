@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Expired - Textile ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-orange-50 to-yellow-50 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full p-8">
+        <div class="text-center">
+            <div class="mx-auto h-16 w-16 bg-orange-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="h-8 w-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">License Expired</h1>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+            {% if license %}
+            <div class="bg-orange-50 border border-orange-200 rounded-md p-4 mb-4">
+                <div class="flex justify-between text-sm">
+                    <span class="text-orange-700">Plan</span>
+                    <span class="font-medium text-orange-900">{{ license.plan_name or license.plan }}</span>
+                </div>
+                {% if license.expires_at %}
+                <div class="flex justify-between text-sm mt-2">
+                    <span class="text-orange-700">Expired on</span>
+                    <span class="font-medium text-orange-900">{{ license.expires_at.strftime('%d %b %Y') }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <p class="text-sm text-gray-600 mb-4">
+                Your license has expired. Please contact the administrator to renew or upgrade your plan.
+            </p>
+
+            <a href="/license/pricing" class="block w-full text-center py-2 px-4 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700 transition-colors">
+                View Plans
+            </a>
+
+            {% if license and license.customer_name %}
+            <div class="text-xs text-gray-400 border-t border-gray-100 pt-3 mt-4">
+                Instance: {{ license.customer_name }}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mt-4 text-center space-y-2">
+            <a href="/license/activate" class="block text-sm text-gray-500 hover:text-gray-700">Enter a new license key</a>
+            <a href="/auth/login" class="block text-sm text-gray-500 hover:text-gray-700">Try logging in again</a>
+        </div>
+    </div>
+</body>
+</html>

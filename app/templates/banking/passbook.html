@@ -3,28 +3,35 @@
 {% block title %}Bank Passbook - Textile ERP{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto space-y-6">
-    <div class="flex justify-between items-center">
+<div class="max-w-7xl mx-auto space-y-4">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Bank Passbook</h1>
-            <p class="text-gray-600">View bank account transactions</p>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Bank Passbook</h1>
+            <p class="text-sm text-gray-600">View bank account transactions</p>
         </div>
-        {% if selected_bank %}
-        <div class="flex gap-2 no-print">
-            <button onclick="window.print()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
-                </svg>
-                Download PDF
+        <div class="flex flex-wrap gap-2 no-print">
+            {% if selected_bank %}
+            <a href="/banking/entry/add?bank_id={{ bank_id }}" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Entry
+            </a>
+            <a href="/banking/cheque/print?bank_id={{ bank_id }}" class="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                Cheque
+            </a>
+            <button onclick="window.print()" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                PDF
             </button>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div class="mb-6">
-            <label for="bank_select" class="block text-sm font-medium text-gray-700 mb-2">Select Bank Account</label>
-            <select id="bank_select" onchange="window.location.href='/banking/passbook?bank_id=' + this.value" class="w-full md:w-96 px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-3 md:p-6 print-wrapper">
+        <!-- Bank selector -->
+        <div class="mb-4 no-print">
+            <label for="bank_select" class="block text-xs font-medium text-gray-700 mb-1">Select Bank Account</label>
+            <select id="bank_select" onchange="window.location.href='/banking/passbook?bank_id=' + this.value" class="w-full md:w-96 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500">
                 <option value="">-- Select Bank --</option>
                 {% for bank in banks %}
                 <option value="{{ bank._id }}" {% if bank_id and bank._id|string == bank_id %}selected{% endif %}>
@@ -35,121 +42,171 @@
         </div>
 
         {% if selected_bank %}
-        <div class="mb-6 p-4 bg-blue-50 rounded">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- Print header (hidden on screen) -->
+        <div class="print-header">
+            <div style="text-align:center; margin-bottom:6px;">
+                <div style="font-size:14px; font-weight:bold;">{{ current_company.name }}</div>
+                <div style="font-size:12px; font-weight:bold; margin-top:4px;">Bank Passbook - {{ selected_bank.bank_name }} ({{ selected_bank.account_number }})</div>
+            </div>
+        </div>
+
+        <!-- Bank info card -->
+        <div class="mb-4 p-3 bg-blue-50 rounded-lg bank-info">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                 <div>
-                    <label class="text-xs font-medium text-gray-600">Bank Name</label>
-                    <p class="text-sm font-semibold">{{ selected_bank.bank_name }}</p>
+                    <label class="text-xs font-medium text-gray-500">Bank Name</label>
+                    <p class="text-xs md:text-sm font-semibold truncate">{{ selected_bank.bank_name }}</p>
                 </div>
                 <div>
-                    <label class="text-xs font-medium text-gray-600">Account Number</label>
-                    <p class="text-sm font-semibold">{{ selected_bank.account_number }}</p>
+                    <label class="text-xs font-medium text-gray-500">Account No</label>
+                    <p class="text-xs md:text-sm font-semibold truncate">{{ selected_bank.account_number }}</p>
                 </div>
                 <div>
-                    <label class="text-xs font-medium text-gray-600">Opening Balance</label>
-                    <p class="text-sm font-semibold">₹{{ "{:,.2f}".format(selected_bank.opening_balance) }}</p>
+                    <label class="text-xs font-medium text-gray-500">Opening Bal</label>
+                    <p class="text-xs md:text-sm font-semibold">₹{{ "{:,.2f}".format(selected_bank.opening_balance) }}</p>
                 </div>
                 <div>
-                    <label class="text-xs font-medium text-gray-600">Current Balance</label>
-                    <p class="text-sm font-semibold text-green-600">₹{{ "{:,.2f}".format(transactions[-1].balance if transactions else selected_bank.opening_balance) }}</p>
+                    <label class="text-xs font-medium text-gray-500">Current Bal</label>
+                    <p class="text-xs md:text-sm font-semibold text-green-600">₹{{ "{:,.2f}".format(transactions[-1].balance if transactions else selected_bank.opening_balance) }}</p>
                 </div>
             </div>
         </div>
 
         {% if transactions %}
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+        <!-- Mobile card view -->
+        <div class="md:hidden divide-y divide-gray-200 no-print">
+            {% for txn in transactions %}
+            <div class="py-3 space-y-1 {% if txn.source == 'entry' %}bg-amber-50 -mx-3 px-3{% endif %}">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">{{ txn.particulars }}</p>
+                        <p class="text-xs text-gray-500">{{ txn.date.strftime('%d-%m-%Y') }}{% if txn.invoice_no and txn.invoice_no != '-' %} · {{ txn.invoice_no }}{% endif %}{% if txn.cheque_no and txn.cheque_no != '-' %} · Ch: {{ txn.cheque_no }}{% endif %}</p>
+                    </div>
+                    {% if txn.source == 'entry' %}
+                    <button onclick="deleteEntry('{{ txn.source_id }}')" class="text-red-400 p-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="flex justify-between text-xs">
+                    <div>
+                        {% if txn.credit > 0 %}<span class="text-green-600 font-medium">+₹{{ "{:,.2f}".format(txn.credit) }}</span>{% endif %}
+                        {% if txn.debit > 0 %}<span class="text-red-600 font-medium">-₹{{ "{:,.2f}".format(txn.debit) }}</span>{% endif %}
+                    </div>
+                    <span class="font-semibold">Bal: ₹{{ "{:,.2f}".format(txn.balance) }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Desktop table view -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 passbook-table">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Description</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cheque No</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Debit</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Credit</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Balance</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Particulars</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Inv No</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Cheque/Ref</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Credit</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Debit</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-700 uppercase">Balance</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-700 uppercase no-print">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for txn in transactions %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm">{{ txn.date.strftime('%d-%m-%Y') }}</td>
-                        <td class="px-4 py-3 text-sm">{{ txn.description }}</td>
-                        <td class="px-4 py-3 text-sm">{{ txn.cheque_no }}</td>
-                        <td class="px-4 py-3 text-sm text-right text-red-600">
-                            {% if txn.debit > 0 %}₹{{ "{:,.2f}".format(txn.debit) }}{% else %}-{% endif %}
+                    <tr class="hover:bg-gray-50 {% if txn.source == 'entry' %}bg-amber-50{% endif %}">
+                        <td class="px-3 py-2 text-sm whitespace-nowrap">{{ txn.date.strftime('%d-%m-%Y') }}</td>
+                        <td class="px-3 py-2 text-sm">{{ txn.particulars }}</td>
+                        <td class="px-3 py-2 text-sm">{{ txn.invoice_no or '-' }}</td>
+                        <td class="px-3 py-2 text-sm">
+                            {% if txn.cheque_no and txn.cheque_no != '-' %}
+                                {% if txn.source == 'entry' and txn.is_online is defined and not txn.is_online %}
+                                    <a href="/banking/cheque/print?bank_id={{ bank_id }}&payee={{ txn.particulars|urlencode }}&amount={{ txn.debit or txn.credit }}&date={{ txn.date.strftime('%Y-%m-%d') }}&cheque_no={{ txn.cheque_no }}" class="text-purple-600 hover:underline" title="Reprint cheque">{{ txn.cheque_no }}</a>
+                                {% else %}
+                                    {{ txn.cheque_no }}
+                                {% endif %}
+                            {% else %}-{% endif %}
                         </td>
-                        <td class="px-4 py-3 text-sm text-right text-green-600">
+                        <td class="px-3 py-2 text-sm text-right text-green-600">
                             {% if txn.credit > 0 %}₹{{ "{:,.2f}".format(txn.credit) }}{% else %}-{% endif %}
                         </td>
-                        <td class="px-4 py-3 text-sm text-right font-semibold">₹{{ "{:,.2f}".format(txn.balance) }}</td>
+                        <td class="px-3 py-2 text-sm text-right text-red-600">
+                            {% if txn.debit > 0 %}₹{{ "{:,.2f}".format(txn.debit) }}{% else %}-{% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-sm text-right font-semibold">₹{{ "{:,.2f}".format(txn.balance) }}</td>
+                        <td class="px-3 py-2 text-center no-print">
+                            {% if txn.source == 'entry' %}
+                            <button onclick="deleteEntry('{{ txn.source_id }}')" class="action-btn text-red-500 hover:bg-red-50" title="Delete entry">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                            {% elif txn.source == 'payment' %}
+                            <span class="text-xs text-gray-400">Invoice</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <div class="text-center py-12">
-            <p class="text-gray-500">No transactions found for this account</p>
+        <div class="text-center py-8">
+            <p class="text-sm text-gray-500">No transactions found for this account</p>
+            <a href="/banking/entry/add?bank_id={{ bank_id }}" class="inline-block mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Add First Entry</a>
         </div>
         {% endif %}
         {% else %}
-        <div class="text-center py-12">
-            <p class="text-gray-500">Please select a bank account to view passbook</p>
+        <div class="text-center py-8">
+            <p class="text-sm text-gray-500">Please select a bank account to view passbook</p>
         </div>
         {% endif %}
     </div>
 
     <div class="flex justify-start no-print">
-        <a href="/banking/banks" class="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200">
-            Back to Banking
-        </a>
+        <a href="/banking/banks" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">Back to Banking</a>
     </div>
 </div>
 
 <style>
 @media print {
-    .no-print {
-        display: none !important;
-    }
-    nav, aside, header {
-        display: none !important;
-    }
-    body {
-        print-color-adjust: exact;
-        -webkit-print-color-adjust: exact;
-        margin: 0;
-        padding: 20px;
-    }
-    main {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    h1 {
-        font-size: 24px;
-        margin-bottom: 10px;
-    }
-    table {
-        page-break-inside: auto;
-        font-size: 11px;
-    }
-    tr {
-        page-break-inside: avoid;
-        page-break-after: auto;
-    }
-    thead {
-        display: table-header-group;
-    }
-    .bg-blue-50 {
-        background-color: #eff6ff !important;
-        border: 1px solid #dbeafe;
-    }
-    .bg-gray-50 {
-        background-color: #f9fafb !important;
-    }
+    html, body { margin:0 !important; padding:0 !important; background:white !important; font-size:8pt !important; }
+    nav, aside, .no-print, #license-banner, #toast-container, #loading-overlay, #confirm-overlay, .sidebar-overlay { display:none !important; }
+    #main-wrapper { padding-top:0 !important; }
+    #main-wrapper > main { margin:0 !important; padding:0 !important; max-width:100% !important; }
+    .print-header { display:block !important; }
+    .print-wrapper { border:none !important; box-shadow:none !important; padding:0 !important; }
+    .bank-info { background:#f0f7ff !important; print-color-adjust:exact; -webkit-print-color-adjust:exact; padding:4px 8px !important; margin-bottom:4px !important; font-size:7pt !important; }
+    .bank-info label { font-size:6pt !important; }
+    .bank-info p { font-size:7pt !important; }
+    .passbook-table { width:100% !important; border-collapse:collapse !important; font-size:7pt !important; }
+    .passbook-table th, .passbook-table td { border:1px solid #ccc !important; padding:2px 4px !important; }
+    .passbook-table thead { display:table-header-group; }
+    .passbook-table th { background:#f3f4f6 !important; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    tr.bg-amber-50 { background:#fffbeb !important; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    .text-green-600 { color:#16a34a !important; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    .text-red-600 { color:#dc2626 !important; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    @page { size:A4 landscape; margin:8mm; }
 }
-@page {
-    size: A4;
-    margin: 15mm;
+@media screen {
+    .print-header { display:none; }
 }
 </style>
+
+<script>
+async function deleteEntry(entryId) {
+    if (!confirm('Delete this passbook entry? This will reverse the balance change.')) return;
+    try {
+        const resp = await fetch('/banking/entry/' + entryId, { method: 'DELETE' });
+        if (resp.ok) {
+            window.location.reload();
+        } else {
+            const data = await resp.json();
+            alert(data.detail || 'Failed to delete entry');
+        }
+    } catch (e) {
+        alert('Error deleting entry');
+    }
+}
+</script>
 {% endblock %}

@@ -7,26 +7,48 @@ from typing import Optional
 
 from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
 from app.database import get_collection
+from app.services.payment_service import escape_regex
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 @router.get("")
 async def list_parties(
+    request: Request,
     context: dict = Depends(get_template_context),
-    party_type: Optional[str] = Query(None)
+    party_type: Optional[str] = Query(None),
+    search: str = "",
+    page: int = 1,
 ):
     parties_collection = await get_collection("parties")
-    
+    per_page = 25
+    skip = (page - 1) * per_page
+
     filter_query = get_company_filter(context["current_company"])
     if party_type:
         filter_query["party_type"] = party_type
-    
-    parties = await parties_collection.find(filter_query).sort("name", 1).to_list(None)
-    
+
+    if search:
+        safe = escape_regex(search)
+        filter_query["$or"] = [
+            {"name": {"$regex": safe, "$options": "i"}},
+            {"party_code": {"$regex": safe, "$options": "i"}},
+            {"contact.phone": {"$regex": safe, "$options": "i"}},
+            {"gstin": {"$regex": safe, "$options": "i"}},
+        ]
+
+    total = await parties_collection.count_documents(filter_query)
+    total_pages = max(1, -(-total // per_page))
+
+    parties = await parties_collection.find(filter_query).sort("name", 1).skip(skip).limit(per_page).to_list(per_page)
+
     context.update({
         "parties": parties,
         "selected_type": party_type,
+        "search": search,
+        "page": page,
+        "total_pages": total_pages,
+        "total": total,
         "breadcrumbs": [
             {"name": "Dashboard", "url": "/dashboard"},
             {"name": "Parties", "url": "/parties"}
@@ -352,14 +374,15 @@ async def search_parties(
     q: str = Query(...),
     current_company: dict = Depends(get_current_company)
 ):
+    safe_q = escape_regex(q)
     parties_collection = await get_collection("parties")
     
     parties = await parties_collection.find({
         **get_company_filter(current_company),
         "$or": [
-            {"name": {"$regex": q, "$options": "i"}},
-            {"party_code": {"$regex": q, "$options": "i"}},
-            {"contact.phone": {"$regex": q, "$options": "i"}}
+            {"name": {"$regex": safe_q, "$options": "i"}},
+            {"party_code": {"$regex": safe_q, "$options": "i"}},
+            {"contact.phone": {"$regex": safe_q, "$options": "i"}}
         ]
     }).limit(10).to_list(10)
     

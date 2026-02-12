@@ -23,7 +23,7 @@ async def get_current_user(request: Request, credentials: HTTPAuthorizationCrede
     
     try:
         username = verify_token(token)
-    except:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_303_SEE_OTHER,
             detail="Invalid token",
@@ -51,7 +51,7 @@ async def get_current_company(request: Request, current_user: dict = Depends(get
     if company_id:
         try:
             company = await companies_collection.find_one({"_id": ObjectId(company_id)})
-        except:
+        except (Exception):
             pass
     
     # If cookie invalid, find valid company from user's list
@@ -62,7 +62,7 @@ async def get_current_company(request: Request, current_user: dict = Depends(get
                 company = await companies_collection.find_one({"_id": ObjectId(cid_str)})
                 if company:
                     break
-            except:
+            except Exception:
                 continue
     
     # Fallback to any company in DB
@@ -96,6 +96,8 @@ async def get_current_company_optional(request: Request, current_user: dict = De
 
 async def get_template_context(request: Request, current_user: dict = Depends(get_current_user), current_company: dict = Depends(get_current_company)):
     """Get common template context including user companies and financial years"""
+    from app.services.license_service import check_license_status
+
     companies_collection = await get_collection("companies")
     user_companies = await companies_collection.find({"_id": {"$in": [ObjectId(cid) for cid in current_user.get("companies", [])]}}).to_list(None)
     
@@ -103,11 +105,14 @@ async def get_template_context(request: Request, current_user: dict = Depends(ge
     financial_years = current_company.get("financial_years", [])
     if not financial_years and current_company.get("financial_year"):
         financial_years = [current_company.get("financial_year")]
-    
+
+    license_status = await check_license_status()
+
     return {
         "request": request,
         "current_user": current_user,
         "current_company": current_company,
         "user_companies": user_companies,
-        "financial_years": financial_years
+        "financial_years": financial_years,
+        "license_status": license_status,
     }

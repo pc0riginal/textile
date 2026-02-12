@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -8,26 +10,92 @@ from typing import Optional, List
 from app.dependencies import get_current_user, get_current_company, get_template_context, get_company_filter
 from app.database import get_collection
 from app.services.audit_service import AuditService
+from app.services.payment_service import (
+    calculate_single_invoice_paid, calculate_single_challan_paid,
+    calculate_invoice_payments_bulk, calculate_challan_payments_bulk,
+    determine_invoice_payment_status, determine_challan_payment_status,
+    calculate_interest, escape_regex
+)
+from app.logger import logger
+from urllib.parse import urlencode
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
+
+async def _maybe_cheque_redirect(form_data: dict, payee: str, amount: float, fallback_url: str):
+    """If payment is by cheque with a cheque_no, redirect to cheque print page. Otherwise redirect to fallback."""
+    cheque_no = form_data.get("cheque_no", "")
+    payment_type = form_data.get("payment_type", "")
+    bank_name = form_data.get("bank_name", "")
+
+    # Sales receipt doesn't have payment_type field — it uses rr (RTGS) field
+    # If cheque_no is present and not empty, treat it as a cheque payment
+    is_cheque = (payment_type == "cheque" and cheque_no) or (not payment_type and cheque_no)
+
+    if is_cheque and cheque_no.strip():
+        # Resolve bank_id from bank_name
+        bank_id = ""
+        if bank_name:
+            bank_collection = await get_collection("bank_accounts")
+            bank_doc = await bank_collection.find_one({"bank_name": bank_name})
+            if bank_doc:
+                bank_id = str(bank_doc["_id"])
+
+        params = urlencode({
+            "bank_id": bank_id,
+            "payee": payee,
+            "amount": amount,
+            "date": form_data.get("payment_date", ""),
+            "cheque_no": cheque_no,
+        })
+        return RedirectResponse(url=f"/banking/cheque/print?{params}", status_code=303)
+
+    return RedirectResponse(url=fallback_url, status_code=303)
+
 @router.get("")
 async def list_payments(
-    context: dict = Depends(get_template_context)
+    request: Request,
+    context: dict = Depends(get_template_context),
+    search: str = "",
+    tab: str = "",
+    page: int = 1,
 ):
     payments_collection = await get_collection("payments")
-    
-    all_payments = await payments_collection.find(
-        get_company_filter(context["current_company"])
-    ).sort("payment_date", -1).to_list(None)
-    
+    per_page = 25
+    skip = (page - 1) * per_page
+
+    filter_query = get_company_filter(context["current_company"])
+
+    if search:
+        safe = escape_regex(search)
+        filter_query["$or"] = [
+            {"payment_no": {"$regex": safe, "$options": "i"}},
+            {"party_name": {"$regex": safe, "$options": "i"}},
+            {"supplier_name": {"$regex": safe, "$options": "i"}},
+        ]
+
+    if tab == "receipts":
+        filter_query["payment_type"] = "receipt"
+    elif tab == "payments":
+        filter_query["payment_type"] = {"$ne": "receipt"}
+
+    total = await payments_collection.count_documents(filter_query)
+    total_pages = max(1, -(-total // per_page))
+
+    all_payments = await payments_collection.find(filter_query).sort("payment_date", -1).skip(skip).limit(per_page).to_list(per_page)
+
     sales_receipts = [p for p in all_payments if p.get("payment_type") == "receipt"]
     purchase_payments = [p for p in all_payments if p.get("payment_type") != "receipt"]
-    
+
     context.update({
         "sales_receipts": sales_receipts,
         "purchase_payments": purchase_payments,
+        "search": search,
+        "selected_tab": tab,
+        "page": page,
+        "total_pages": total_pages,
+        "total": total,
         "breadcrumbs": [
             {"name": "Dashboard", "url": "/dashboard"},
             {"name": "Payments", "url": "/payments"}
@@ -48,23 +116,18 @@ async def get_customer_invoices(
         "customer_id": ObjectId(customer_id)
     }).sort("invoice_date", -1).to_list(None)
     
+    # Bulk calculate payments
+    invoice_ids = [inv["_id"] for inv in invoices]
+    paid_map = await calculate_invoice_payments_bulk(invoice_ids)
+    
     result = []
     for inv in invoices:
-        existing_payments = await payments_collection.find({"invoices.invoice_id": inv["_id"]}).to_list(None)
-        total_paid = sum(
-            item["amount"] for p in existing_payments 
-            for item in p.get("invoices", []) 
-            if item["invoice_id"] == inv["_id"]
-        )
+        total_paid = paid_map.get(inv["_id"], 0.0)
         
-        # Calculate interest if overdue
-        interest = 0
-        if inv.get("due_date") and inv.get("interest_rate", 0) > 0:
-            due_date = inv["due_date"]
-            today = datetime.now()
-            if today > due_date:
-                overdue_days = (today - due_date).days
-                interest = (inv["total_amount"] * inv["interest_rate"] * overdue_days) / (365 * 100)
+        interest = calculate_interest(
+            inv["total_amount"], total_paid,
+            inv.get("due_date"), inv.get("interest_rate", 0)
+        )
         
         outstanding = inv["total_amount"] - total_paid
         
@@ -96,17 +159,15 @@ async def get_supplier_invoices(
         "payment_status": {"$ne": "completed"}
     }).sort("challan_date", -1).to_list(None)
     
+    # Bulk calculate payments
+    challan_ids = [c["_id"] for c in challans]
+    paid_map = await calculate_challan_payments_bulk(challan_ids)
+    
     result = []
     for c in challans:
         total_kg = sum(item.get("quantity", 0) for item in c.get("items", []))
         total_carton = len(c.get("items", []))
-        
-        existing_payments = await payments_collection.find({"invoices.challan_id": c["_id"]}).to_list(None)
-        total_paid = sum(
-            inv["amount"] for p in existing_payments 
-            for inv in p.get("invoices", []) 
-            if inv["challan_id"] == c["_id"]
-        )
+        total_paid = paid_map.get(c["_id"], 0.0)
         outstanding = c["total_amount"] - total_paid
         
         result.append({
@@ -116,7 +177,7 @@ async def get_supplier_invoices(
             "invoice_date": c["challan_date"].strftime("%Y-%m-%d"),
             "total_kg": total_kg,
             "total_carton": total_carton,
-            "quality": c.get("items", [])[0].get("quality", "") if c.get("items") else "",
+            "quality": c.get("items", [{}])[0].get("quality", "") if c.get("items") else "",
             "net_rs": c["total_amount"],
             "rate_per_kg": c["total_amount"] / total_kg if total_kg > 0 else 0,
             "total_paid": total_paid,
@@ -216,7 +277,6 @@ async def create_sales_receipt(
     current_user: dict = Depends(get_current_user),
     current_company: dict = Depends(get_current_company)
 ):
-    import json
     form_data = await request.form()
     payments_collection = await get_collection("payments")
     invoices_collection = await get_collection("sales_invoices")
@@ -268,39 +328,13 @@ async def create_sales_receipt(
     # Update invoice payment status
     for inv_data in selected_invoices:
         invoice_id = ObjectId(inv_data["invoice_id"])
-        payment_amount = float(inv_data["amount"])
         
         invoice = await invoices_collection.find_one({"_id": invoice_id})
         if invoice:
-            # Calculate total paid for this invoice
-            existing_payments = await payments_collection.find({"invoices.invoice_id": invoice_id}).to_list(None)
-            total_paid = sum(
-                item["amount"] for p in existing_payments 
-                for item in p.get("invoices", []) 
-                if item["invoice_id"] == invoice_id
-            )
+            total_paid = await calculate_single_invoice_paid(invoice_id)
+            outstanding = invoice["total_amount"] - total_paid
+            payment_status = determine_invoice_payment_status(invoice["total_amount"], total_paid)
             
-            # Calculate interest on remaining balance if overdue
-            balance = invoice["total_amount"] - total_paid
-            interest = 0
-            if balance > 0 and invoice.get("due_date") and invoice.get("interest_rate", 0) > 0:
-                due_date = invoice["due_date"]
-                today = datetime.now()
-                if today > due_date:
-                    overdue_days = (today - due_date).days
-                    interest = (balance * invoice["interest_rate"] * overdue_days) / (365 * 100)
-            
-            outstanding = balance
-            
-            # Determine payment status
-            if outstanding <= 0.01:  # Allow small rounding differences
-                payment_status = "paid"
-            elif total_paid > 0:
-                payment_status = "partial"
-            else:
-                payment_status = "unpaid"
-            
-            # Update invoice
             await invoices_collection.update_one(
                 {"_id": invoice_id},
                 {"$set": {
@@ -337,7 +371,7 @@ async def create_sales_receipt(
                 "created_at": datetime.utcnow()
             })
     
-    return RedirectResponse(url="/payments", status_code=303)
+    return RedirectResponse(url="/payments/sales-receipt/create", status_code=303)
 
 @router.post("/receipt/create")
 async def create_receipt(
@@ -345,7 +379,6 @@ async def create_receipt(
     current_user: dict = Depends(get_current_user),
     current_company: dict = Depends(get_current_company)
 ):
-    import json
     try:
         form_data = await request.form()
         payments_collection = await get_collection("payments")
@@ -371,7 +404,7 @@ async def create_receipt(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid invoice data")
     except Exception as e:
-        print(f"Error in create_receipt: {str(e)}")
+        logger.error(f"Error in create_receipt: {str(e)}")
         raise
     
     total_amount = float(form_data.get("amount") or 0)
@@ -420,19 +453,12 @@ async def create_receipt(
         if result.inserted_id:
             for inv_data in selected_invoices:
                 challan_id = ObjectId(inv_data["invoice_id"])
-                payment_amount = float(inv_data["amount"])
                 
                 challan = await challans_collection.find_one({"_id": challan_id})
                 if challan:
-                    existing_payments = await payments_collection.find({"invoices.challan_id": challan_id}).to_list(None)
-                    total_paid = sum(
-                        inv["amount"] for p in existing_payments 
-                        for inv in p.get("invoices", []) 
-                        if inv["challan_id"] == challan_id
-                    )
-                    
+                    total_paid = await calculate_single_challan_paid(challan_id)
                     final_rs = challan["total_amount"]
-                    payment_status = "completed" if total_paid >= final_rs else "partial"
+                    payment_status = determine_challan_payment_status(final_rs, total_paid)
                     
                     await challans_collection.update_one(
                         {"_id": challan_id},
@@ -471,13 +497,17 @@ async def create_receipt(
                         "created_at": datetime.utcnow()
                     })
             
-            return RedirectResponse(url=f"/payments/{result.inserted_id}", status_code=303)
+            return await _maybe_cheque_redirect(
+                form_data, supplier["name"],
+                float(form_data.get("cheque_amount") or form_data.get("amount") or 0),
+                "/payments/receipt/create"
+            )
         else:
             raise HTTPException(status_code=500, detail="Failed to create payment")
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error creating payment: {str(e)}")
+        logger.error(f"Error creating payment: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @router.get("/{payment_id}")
@@ -622,17 +652,12 @@ async def delete_payment(
             # Handle sales receipts (invoice_id)
             if "invoice_id" in inv:
                 invoice_id = inv["invoice_id"]
-                existing_payments = await payments_collection.find({"invoices.invoice_id": invoice_id}).to_list(None)
-                total_paid = sum(
-                    item["amount"] for p in existing_payments 
-                    for item in p.get("invoices", []) 
-                    if item.get("invoice_id") == invoice_id
-                )
+                total_paid = await calculate_single_invoice_paid(invoice_id)
                 
                 invoice = await invoices_collection.find_one({"_id": invoice_id})
                 if invoice:
                     outstanding = invoice["total_amount"] - total_paid
-                    payment_status = "paid" if total_paid >= invoice["total_amount"] else "partial" if total_paid > 0 else "unpaid"
+                    payment_status = determine_invoice_payment_status(invoice["total_amount"], total_paid)
                     
                     await invoices_collection.update_one(
                         {"_id": invoice_id},
@@ -647,16 +672,11 @@ async def delete_payment(
             # Handle purchase payments (challan_id)
             elif "challan_id" in inv:
                 challan_id = inv["challan_id"]
-                existing_payments = await payments_collection.find({"invoices.challan_id": challan_id}).to_list(None)
-                total_paid = sum(
-                    item["amount"] for p in existing_payments 
-                    for item in p.get("invoices", []) 
-                    if item.get("challan_id") == challan_id
-                )
+                total_paid = await calculate_single_challan_paid(challan_id)
                 
                 challan = await challans_collection.find_one({"_id": challan_id})
                 if challan:
-                    payment_status = "completed" if total_paid >= challan["total_amount"] else "partial" if total_paid > 0 else None
+                    payment_status = determine_challan_payment_status(challan["total_amount"], total_paid)
                     
                     await challans_collection.update_one(
                         {"_id": challan_id},

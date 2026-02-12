@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Admin - Textile ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div class="max-w-4xl mx-auto p-3 md:p-6 space-y-4 md:space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900">License Administration</h1>
+        <span class="text-xs text-gray-400">Admin Panel</span>
+    </div>
+
+    <!-- Current Status -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
+        <h2 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Current License</h2>
+        {% if license %}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 text-sm">
+            <div>
+                <span class="text-gray-500 block">Plan</span>
+                <span class="font-medium">{{ license.plan_name or license.plan }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500 block">Status</span>
+                <span class="font-medium {% if license.status == 'active' %}text-green-600{% elif license.status == 'suspended' %}text-red-600{% else %}text-orange-600{% endif %}">
+                    {{ license.status | upper }}
+                </span>
+            </div>
+            <div>
+                <span class="text-gray-500 block">Customer</span>
+                <span class="font-medium">{{ license.customer_name }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500 block">Devices</span>
+                <span class="font-medium">{{ license.devices | length }} / {{ license.max_devices }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500 block">Issued</span>
+                <span class="font-medium">{{ license.issued_at.strftime('%d %b %Y') if license.issued_at else '-' }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500 block">Expires</span>
+                <span class="font-medium">
+                    {% if license.expires_at %}
+                        {{ license.expires_at.strftime('%d %b %Y') }}
+                    {% else %}
+                        Never (Lifetime)
+                    {% endif %}
+                </span>
+            </div>
+            <div>
+                <span class="text-gray-500 block">Backup</span>
+                <span class="font-medium {% if license.backup_enabled %}text-green-600{% else %}text-gray-400{% endif %}">
+                    {{ "Enabled" if license.backup_enabled else "Disabled" }}
+                </span>
+            </div>
+            <div>
+                <span class="text-gray-500 block">Days Remaining</span>
+                {% set dr = status.get('days_remaining') %}
+                <span class="font-medium {% if dr is not none and dr < 7 %}text-red-600{% endif %}">
+                    {{ dr if dr is not none else '∞' }}
+                </span>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-gray-500">No license activated on this instance.</p>
+        {% endif %}
+    </div>
+
+    <!-- Generate License Key -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Generate License Key</h2>
+        <p class="text-xs text-gray-500 mb-4">Create a key for a new customer. Copy it and send to them for activation.</p>
+        <form onsubmit="return generateKey(event)" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Plan</label>
+                    <select name="plan" required class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        {% for pt in plan_types %}
+                        <option value="{{ pt.value }}">{{ plans[pt]["name"] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Customer Name</label>
+                    <input type="text" name="customer_name" required placeholder="Business name" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Email (optional)</label>
+                    <input type="email" name="customer_email" placeholder="email" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Phone (optional)</label>
+                    <input type="text" name="customer_phone" placeholder="phone" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700">Generate Key</button>
+        </form>
+        <div id="generated-key-box" class="hidden mt-4">
+            <label class="block text-xs text-gray-500 mb-1">Generated License Key (copy this)</label>
+            <div class="flex gap-2">
+                <textarea id="generated-key" readonly rows="3" class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-xs font-mono bg-gray-50"></textarea>
+                <button onclick="copyKey()" class="px-3 py-2 bg-gray-200 text-gray-700 rounded-md text-xs font-medium hover:bg-gray-300 self-start">Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Actions -->
+    {% if license %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Extend Expiry -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-3">Extend Expiry</h3>
+            <p class="text-xs text-gray-500 mb-3">Add extra days to the current expiry date.</p>
+            <form onsubmit="return adminAction(event, '/license/admin/extend')" class="flex items-end gap-3">
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-500 mb-1">Extra Days</label>
+                    <input type="number" name="extra_days" value="10" min="1" max="365" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Extend</button>
+            </form>
+        </div>
+
+        <!-- Change Plan -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-3">Change Plan</h3>
+            <p class="text-xs text-gray-500 mb-3">Switch to a different plan. Resets expiry based on new plan.</p>
+            <form onsubmit="return adminAction(event, '/license/admin/change-plan')" class="flex items-end gap-3">
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-500 mb-1">New Plan</label>
+                    <select name="new_plan" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        {% for pt in plan_types %}
+                        <option value="{{ pt.value }}" {% if license and license.plan == pt.value %}selected{% endif %}>{{ plans[pt]["name"] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700">Change</button>
+            </form>
+        </div>
+
+        <!-- Suspend / Reactivate -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-3">Suspend / Reactivate</h3>
+            <p class="text-xs text-gray-500 mb-3">Immediately block or restore access.</p>
+            {% if license.status == 'suspended' %}
+            <form onsubmit="return adminAction(event, '/license/admin/reactivate')">
+                <button type="submit" class="w-full px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700">Reactivate License</button>
+            </form>
+            {% else %}
+            <form onsubmit="return adminAction(event, '/license/admin/suspend')" class="flex items-end gap-3">
+                <div class="flex-1">
+                    <label class="block text-xs text-gray-500 mb-1">Reason</label>
+                    <input type="text" name="reason" value="Payment pending" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700">Suspend</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- Reset Devices -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-3">Reset Devices</h3>
+            <p class="text-xs text-gray-500 mb-3">Clear all registered devices ({{ license.devices | length }} currently). Use when customer changes machines.</p>
+            <form onsubmit="return adminAction(event, '/license/admin/reset-devices')">
+                <button type="submit" class="w-full px-4 py-2 bg-orange-600 text-white rounded-md text-sm font-medium hover:bg-orange-700">Reset All Devices</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Admin Action Log -->
+    {% if admin_log %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Action History</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 text-left">
+                        <th class="py-2 px-3 text-gray-500 font-medium">Date</th>
+                        <th class="py-2 px-3 text-gray-500 font-medium">Action</th>
+                        <th class="py-2 px-3 text-gray-500 font-medium">By</th>
+                        <th class="py-2 px-3 text-gray-500 font-medium">Details</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for entry in admin_log | reverse %}
+                    <tr>
+                        <td class="py-2 px-3 text-gray-600">{{ entry.performed_at.strftime('%d %b %Y %H:%M') if entry.performed_at else '-' }}</td>
+                        <td class="py-2 px-3">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                {% if entry.action == 'suspend' %}bg-red-100 text-red-700
+                                {% elif entry.action == 'reactivate' %}bg-green-100 text-green-700
+                                {% elif entry.action == 'extend_trial' %}bg-blue-100 text-blue-700
+                                {% elif entry.action == 'change_plan' %}bg-indigo-100 text-indigo-700
+                                {% elif entry.action == 'reset_devices' %}bg-orange-100 text-orange-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {{ entry.action | replace('_', ' ') | title }}
+                            </span>
+                        </td>
+                        <td class="py-2 px-3 text-gray-600">{{ entry.performed_by or '-' }}</td>
+                        <td class="py-2 px-3 text-gray-500 text-xs">
+                            {% if entry.action == 'extend_trial' %}+{{ entry.extra_days }} days
+                            {% elif entry.action == 'suspend' %}{{ entry.reason }}
+                            {% elif entry.action == 'change_plan' %}{{ entry.old_plan }} → {{ entry.new_plan }}
+                            {% elif entry.action == 'reset_devices' %}Cleared {{ entry.cleared_devices | length }} devices
+                            {% else %}-{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+async function adminAction(event, url) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+
+    const actionName = url.split('/').pop();
+    if (!confirm('Confirm: ' + actionName.replace(/-/g, ' ') + '?')) return false;
+
+    try {
+        const res = await fetch(url, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            alert('Done!');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.detail || JSON.stringify(data)));
+        }
+    } catch (err) {
+        alert('Request failed: ' + err.message);
+    }
+    return false;
+}
+
+async function generateKey(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+
+    try {
+        const res = await fetch('/license/admin/generate-key', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('generated-key').value = data.license_key;
+            document.getElementById('generated-key-box').classList.remove('hidden');
+        } else {
+            alert('Error: ' + (data.detail || JSON.stringify(data)));
+        }
+    } catch (err) {
+        alert('Request failed: ' + err.message);
+    }
+    return false;
+}
+
+function copyKey() {
+    const textarea = document.getElementById('generated-key');
+    textarea.select();
+    navigator.clipboard.writeText(textarea.value).then(() => {
+        const btn = textarea.nextElementSibling;
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = original; }, 2000);
+    });
+}
+</script>
+</body>
+</html>

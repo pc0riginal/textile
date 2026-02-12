@@ -4,17 +4,48 @@
 
 {% block content %}
 <div id="preview-content">
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <!-- Header -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 print-wrapper">
+        <!-- Screen header (hidden in print) -->
         {% if not request.query_params.get('pdf') %}
-        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 no-print">
-            <h2 class="text-lg font-semibold text-gray-900">Purchase Invoice Report</h2>
+        <div class="px-3 md:px-4 py-3 border-b border-gray-200 bg-gray-50 no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h2 class="text-base md:text-lg font-semibold text-gray-900">Purchase Invoice Report</h2>
+            <div class="flex gap-2">
+                <button onclick="window.print()" class="bg-blue-600 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    Print
+                </button>
+                <a href="/reports/generator" class="bg-gray-100 px-3 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-gray-200 text-sm">Back</a>
+            </div>
         </div>
         {% endif %}
 
-        <!-- Report Info -->
-        <div class="p-4 border-b border-gray-200 bg-gray-50">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <!-- Print-only header (hidden on screen) -->
+        <div class="print-header">
+            <div style="text-align:center; margin-bottom:8px;">
+                <div style="font-size:16px; font-weight:bold;">{{ current_company.name }}</div>
+                {% if current_company.get('address') %}
+                <div style="font-size:10px; color:#555;">
+                    {{ current_company.address.get('line1', '') }}{% if current_company.address.get('city') %}, {{ current_company.address.city }}{% endif %}{% if current_company.address.get('state') %} - {{ current_company.address.state }}{% endif %}
+                </div>
+                {% endif %}
+                {% if current_company.get('gstin') %}
+                <div style="font-size:10px; color:#555;">GSTIN: {{ current_company.gstin }}</div>
+                {% endif %}
+            </div>
+            <div style="text-align:center; margin-bottom:6px;">
+                <div style="font-size:13px; font-weight:bold; border-bottom:1px solid #333; display:inline-block; padding-bottom:2px;">Purchase Invoice Report</div>
+            </div>
+            <div style="font-size:9px; color:#555; display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span>
+                    Supplier: {{ supplier_name }} | Quality: {{ quality }} | Period: {{ fromDate or 'All' }} to {{ toDate or 'All' }}
+                </span>
+                <span>Generated: {{ generated_at }}</span>
+            </div>
+        </div>
+
+        <!-- Report Info (screen) -->
+        <div class="p-3 md:p-4 border-b border-gray-200 bg-gray-50 no-print">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 text-sm">
                 <div>
                     <span class="font-medium text-gray-700">Company:</span>
                     <span class="text-gray-900">{{ current_company.name }}</span>
@@ -34,9 +65,24 @@
             </div>
         </div>
 
+        <!-- Print-only compact summary -->
+        <div class="print-summary">
+            {% if challans %}
+            <table style="width:100%; font-size:9px; border:1px solid #ccc; margin-bottom:4px;">
+                <tr>
+                    <td style="padding:3px 6px; border-right:1px solid #ccc;"><strong>Challans:</strong> {{ challans|length }}</td>
+                    <td style="padding:3px 6px; border-right:1px solid #ccc;"><strong>Total:</strong> ₹{{ "{:,.2f}".format(challans|sum(attribute='total_amount', start=0)) }}</td>
+                    <td style="padding:3px 6px; border-right:1px solid #ccc;"><strong>Paid:</strong> ₹{{ "{:,.2f}".format(challans|sum(attribute='total_paid', start=0)) }}</td>
+                    <td style="padding:3px 6px;"><strong>Outstanding:</strong> ₹{{ "{:,.2f}".format(challans|sum(attribute='outstanding', start=0)) }}</td>
+                </tr>
+            </table>
+            {% endif %}
+        </div>
+
         <!-- Report Table -->
-        <div class="overflow-x-auto -mx-4 md:mx-0">
-            <table class="w-full text-xs">
+        <div class="no-print md:hidden px-3 py-1.5 bg-blue-50 text-xs text-blue-600 border-b">← Scroll horizontally to see all columns →</div>
+        <div class="overflow-x-auto -mx-4 md:mx-0 print-table">
+            <table class="w-full text-xs report-table">
                 <thead class="bg-gray-100 border-b border-gray-200">
                     <tr>
                         <th class="px-2 py-2 text-left font-medium text-gray-700">Invoice No</th>
@@ -94,7 +140,7 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="15" class="px-4 py-8 text-center text-gray-500">No records found</td>
+                            <td colspan="16" class="px-4 py-8 text-center text-gray-500">No records found</td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -111,7 +157,7 @@
                         <td class="px-2 py-2 text-right font-semibold text-red-600">
                             ₹{{ "{:,.2f}".format(challans | sum(attribute='outstanding', start=0)) }}
                         </td>
-                        <td></td>
+                        <td colspan="2"></td>
                     </tr>
                 </tfoot>
                 {% endif %}
@@ -121,18 +167,102 @@
 </div>
 
 <style>
-@media print {
-    nav, aside, .no-print { display: none !important; }
-    body { padding: 0 !important; margin: 0 !important; }
-    main { margin: 0 !important; padding: 20px !important; }
-    table { page-break-inside: auto; }
-    tr { page-break-inside: avoid; page-break-after: auto; }
-    thead { display: table-header-group; }
-    tfoot { display: table-footer-group; }
-}
 @page {
     size: A4 landscape;
-    margin: 10mm;
+    margin: 8mm;
+}
+
+@media print {
+    /* Hide base layout chrome */
+    nav, aside, .no-print,
+    #license-banner, #toast-container, #loading-overlay, #confirm-overlay,
+    .sidebar-overlay { display: none !important; }
+
+    /* Reset layout */
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        font-size: 8pt !important;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+    #main-wrapper {
+        padding-top: 0 !important;
+        display: block !important;
+    }
+    #main-wrapper > main {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Show print-only elements */
+    .print-header { display: block !important; }
+    .print-summary { display: block !important; }
+
+    /* Clean container */
+    .print-wrapper {
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+    .print-table {
+        overflow: visible !important;
+        margin: 0 !important;
+    }
+
+    /* Table formatting */
+    .report-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 7pt !important;
+    }
+    .report-table th {
+        background-color: #e5e7eb !important;
+        border: 1px solid #d1d5db !important;
+        padding: 3px 4px !important;
+        font-size: 7pt !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
+    }
+    .report-table td {
+        border: 1px solid #e5e7eb !important;
+        padding: 2px 4px !important;
+        font-size: 7pt !important;
+        vertical-align: top !important;
+    }
+    .report-table tbody tr {
+        page-break-inside: avoid !important;
+    }
+    .report-table thead {
+        display: table-header-group !important;
+    }
+    .report-table tfoot {
+        display: table-footer-group !important;
+    }
+    .report-table tfoot td {
+        background-color: #f3f4f6 !important;
+        border-top: 2px solid #9ca3af !important;
+        font-weight: 600 !important;
+    }
+
+    /* Status badges */
+    .bg-green-100 { background-color: #dcfce7 !important; color: #15803d !important; }
+    .bg-yellow-100 { background-color: #fef9c3 !important; color: #a16207 !important; }
+    .bg-red-100 { background-color: #fee2e2 !important; color: #b91c1c !important; }
+
+    /* Colors */
+    .text-green-600 { color: #16a34a !important; }
+    .text-red-600 { color: #dc2626 !important; }
+
+    /* Links as plain text */
+    a { color: inherit !important; text-decoration: none !important; }
+}
+
+/* Screen: hide print-only elements */
+@media screen {
+    .print-header { display: none !important; }
+    .print-summary { display: none !important; }
 }
 </style>
 

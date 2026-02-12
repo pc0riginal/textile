@@ -1,0 +1,50 @@
+{% if total_pages > 1 %}
+<div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="text-sm text-gray-600">
+            Showing page {{ page }} of {{ total_pages }} ({{ total }} records)
+        </div>
+        <div class="flex items-center gap-1">
+            {% set base_url = request.url.path %}
+            {% set params = request.query_params %}
+            {# Build query string preserving existing params except page #}
+            {% set ns = namespace(qs='') %}
+            {% for key, val in params.multi_items() %}
+                {% if key != 'page' %}
+                    {% set ns.qs = ns.qs ~ ('&' if ns.qs else '') ~ key ~ '=' ~ val %}
+                {% endif %}
+            {% endfor %}
+            {% set sep = '&' if ns.qs else '' %}
+
+            <a href="{{ base_url }}?{{ ns.qs }}{{ sep }}page=1"
+               class="page-btn {% if page <= 1 %}opacity-40 pointer-events-none{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+            </a>
+            <a href="{{ base_url }}?{{ ns.qs }}{{ sep }}page={{ page - 1 }}"
+               class="page-btn {% if page <= 1 %}opacity-40 pointer-events-none{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </a>
+
+            {% set start_page = [1, page - 2] | max %}
+            {% set end_page = [total_pages, page + 2] | min %}
+            {% for p in range(start_page, end_page + 1) %}
+                <a href="{{ base_url }}?{{ ns.qs }}{{ sep }}page={{ p }}"
+                   class="page-btn {% if p == page %}active{% endif %}">{{ p }}</a>
+            {% endfor %}
+
+            <a href="{{ base_url }}?{{ ns.qs }}{{ sep }}page={{ page + 1 }}"
+               class="page-btn {% if page >= total_pages %}opacity-40 pointer-events-none{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <a href="{{ base_url }}?{{ ns.qs }}{{ sep }}page={{ total_pages }}"
+               class="page-btn {% if page >= total_pages %}opacity-40 pointer-events-none{% endif %}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </div>
+</div>
+{% elif total is defined %}
+<div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+    <div class="text-sm text-gray-600">{{ total }} record{{ 's' if total != 1 else '' }}</div>
+</div>
+{% endif %}

@@ -3,36 +3,38 @@
 {% block title %}Sales Report - Textile ERP{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <div class="flex items-center justify-between">
+<div class="space-y-4">
+    <!-- Page header + actions (hidden in print) -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 no-print">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Sales Report</h1>
-            <p class="text-gray-600">Comprehensive sales analysis and summary</p>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Sales Report</h1>
+            <p class="text-sm text-gray-600">Comprehensive sales analysis and summary</p>
         </div>
         <div class="flex gap-2">
-            <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+            <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                Print
+                Print Report
             </button>
-            <a href="/invoices" class="bg-gray-100 px-4 py-2 rounded-lg hover:bg-gray-200">Back</a>
+            <a href="/invoices" class="bg-gray-100 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm">Back</a>
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm border p-6">
-        <h2 class="text-lg font-semibold mb-4">Filter Options</h2>
-        <form method="GET" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <!-- Filter form (hidden in print) -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-3 md:p-4 no-print">
+        <h2 class="text-base font-semibold mb-3">Filter Options</h2>
+        <form method="GET" class="space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                    <input type="date" name="start_date" value="{{ start_date or '' }}" class="w-full px-3 py-2 border rounded-md">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+                    <input type="date" name="start_date" value="{{ start_date or '' }}" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                    <input type="date" name="end_date" value="{{ end_date or '' }}" class="w-full px-3 py-2 border rounded-md">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+                    <input type="date" name="end_date" value="{{ end_date or '' }}" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Customer</label>
-                    <select name="customer_id" class="w-full px-3 py-2 border rounded-md">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Customer</label>
+                    <select name="customer_id" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
                         <option value="">All Customers</option>
                         {% for customer in customers %}
                         <option value="{{ customer._id }}" {% if customer_id and customer_id == customer._id|string %}selected{% endif %}>{{ customer.name }}</option>
@@ -40,8 +42,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Broker</label>
-                    <select name="broker_id" class="w-full px-3 py-2 border rounded-md">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Broker</label>
+                    <select name="broker_id" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
                         <option value="">All Brokers</option>
                         {% for broker in brokers %}
                         <option value="{{ broker._id }}" {% if broker_id and broker_id == broker._id|string %}selected{% endif %}>{{ broker.name }}</option>
@@ -49,10 +51,10 @@
                     </select>
                 </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Quality</label>
-                    <select name="quality" class="w-full px-3 py-2 border rounded-md">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Quality</label>
+                    <select name="quality" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
                         <option value="">All Qualities</option>
                         {% for q in qualities %}
                         <option value="{{ q.name }}" {% if quality == q.name %}selected{% endif %}>{{ q.name }}</option>
@@ -60,52 +62,95 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
-                    <select name="payment_filter" class="w-full px-3 py-2 border rounded-md">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Payment Status</label>
+                    <select name="payment_filter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg">
                         <option value="all" {% if not payment_filter or payment_filter == 'all' %}selected{% endif %}>All</option>
                         <option value="dues" {% if payment_filter == 'dues' %}selected{% endif %}>Pending/Partial</option>
                         <option value="paid" {% if payment_filter == 'paid' %}selected{% endif %}>Fully Paid</option>
                     </select>
                 </div>
             </div>
-            <button type="submit" class="w-full md:w-auto px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Apply Filters</button>
+            <button type="submit" class="w-full md:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Apply Filters</button>
         </form>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
-            <h3 class="text-sm font-medium opacity-90">Total Invoices</h3>
-            <p class="text-3xl font-bold mt-2">{{ invoices|length }}</p>
+    <!-- Print-only header (hidden on screen) -->
+    <div class="print-header hidden">
+        <div style="text-align:center; margin-bottom:8px;">
+            <div style="font-size:16px; font-weight:bold;">{{ current_company.name }}</div>
+            {% if current_company.get('address') %}
+            <div style="font-size:10px; color:#555;">
+                {{ current_company.address.get('line1', '') }}{% if current_company.address.get('city') %}, {{ current_company.address.city }}{% endif %}{% if current_company.address.get('state') %} - {{ current_company.address.state }}{% endif %}
+            </div>
+            {% endif %}
+            {% if current_company.get('gstin') %}
+            <div style="font-size:10px; color:#555;">GSTIN: {{ current_company.gstin }}</div>
+            {% endif %}
         </div>
-        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
-            <h3 class="text-sm font-medium opacity-90">Total Sales</h3>
-            <p class="text-3xl font-bold mt-2">₹{{ "{:,.2f}".format(total_sales) }}</p>
+        <div style="text-align:center; margin-bottom:6px;">
+            <div style="font-size:13px; font-weight:bold; border-bottom:1px solid #333; display:inline-block; padding-bottom:2px;">Sales Report</div>
         </div>
-        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg shadow-sm p-6 text-white">
-            <h3 class="text-sm font-medium opacity-90">Total Paid</h3>
-            <p class="text-3xl font-bold mt-2">₹{{ "{:,.2f}".format(total_paid) }}</p>
-        </div>
-        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white">
-            <h3 class="text-sm font-medium opacity-90">Total Pending</h3>
-            <p class="text-3xl font-bold mt-2">₹{{ "{:,.2f}".format(total_pending) }}</p>
-        </div>
-        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-sm p-6 text-white">
-            <h3 class="text-sm font-medium opacity-90">Total Interest</h3>
-            <p class="text-3xl font-bold mt-2">₹{{ "{:,.2f}".format(total_interest or 0) }}</p>
-        </div>
-        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-sm p-6 text-white">
-            <h3 class="text-sm font-medium opacity-90">Total Outstanding</h3>
-            <p class="text-3xl font-bold mt-2">₹{{ "{:,.2f}".format(total_outstanding or 0) }}</p>
+        <div style="font-size:9px; color:#555; display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span>
+                Period: {{ start_date or 'All' }} to {{ end_date or 'All' }}
+                {% if selected_customer_name %} | Customer: {{ selected_customer_name }}{% endif %}
+                {% if selected_broker_name %} | Broker: {{ selected_broker_name }}{% endif %}
+                {% if quality %} | Quality: {{ quality }}{% endif %}
+                {% if payment_filter and payment_filter != 'all' %} | Status: {{ payment_filter|title }}{% endif %}
+            </span>
+            <span>Generated: {{ generated_at }}</span>
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm border">
-        <div class="p-4 border-b bg-gray-50">
+    <!-- Summary cards (screen only — print gets a compact summary row) -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 no-print">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm p-3 md:p-4 text-white">
+            <h3 class="text-xs font-medium opacity-90">Total Invoices</h3>
+            <p class="text-lg md:text-2xl font-bold mt-1">{{ invoices|length }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-sm p-3 md:p-4 text-white">
+            <h3 class="text-xs font-medium opacity-90">Total Sales</h3>
+            <p class="text-lg md:text-2xl font-bold mt-1 truncate">₹{{ "{:,.2f}".format(total_sales) }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg shadow-sm p-3 md:p-4 text-white">
+            <h3 class="text-xs font-medium opacity-90">Total Paid</h3>
+            <p class="text-lg md:text-2xl font-bold mt-1 truncate">₹{{ "{:,.2f}".format(total_paid) }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-sm p-3 md:p-4 text-white">
+            <h3 class="text-xs font-medium opacity-90">Total Pending</h3>
+            <p class="text-lg md:text-2xl font-bold mt-1 truncate">₹{{ "{:,.2f}".format(total_pending) }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-sm p-3 md:p-4 text-white">
+            <h3 class="text-xs font-medium opacity-90">Total Interest</h3>
+            <p class="text-lg md:text-2xl font-bold mt-1 truncate">₹{{ "{:,.2f}".format(total_interest or 0) }}</p>
+        </div>
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-sm p-3 md:p-4 text-white">
+            <h3 class="text-xs font-medium opacity-90">Total Outstanding</h3>
+            <p class="text-lg md:text-2xl font-bold mt-1 truncate">₹{{ "{:,.2f}".format(total_outstanding or 0) }}</p>
+        </div>
+    </div>
+
+    <!-- Print-only compact summary -->
+    <div class="print-summary hidden">
+        <table style="width:100%; font-size:9px; border:1px solid #ccc; margin-bottom:8px;">
+            <tr>
+                <td style="padding:3px 6px; border-right:1px solid #ccc;"><strong>Invoices:</strong> {{ invoices|length }}</td>
+                <td style="padding:3px 6px; border-right:1px solid #ccc;"><strong>Total Sales:</strong> ₹{{ "{:,.2f}".format(total_sales) }}</td>
+                <td style="padding:3px 6px; border-right:1px solid #ccc;"><strong>Paid:</strong> ₹{{ "{:,.2f}".format(total_paid) }}</td>
+                <td style="padding:3px 6px; border-right:1px solid #ccc;"><strong>Pending:</strong> ₹{{ "{:,.2f}".format(total_pending) }}</td>
+                <td style="padding:3px 6px; border-right:1px solid #ccc;"><strong>Interest:</strong> ₹{{ "{:,.2f}".format(total_interest or 0) }}</td>
+                <td style="padding:3px 6px;"><strong>Outstanding:</strong> ₹{{ "{:,.2f}".format(total_outstanding or 0) }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border print-table-wrapper">
+        <div class="p-4 border-b bg-gray-50 no-print">
             <h2 class="text-lg font-semibold">Invoice Details</h2>
         </div>
         {% if invoices %}
-        <!-- Mobile View -->
-        <div class="md:hidden divide-y">
+        <!-- Mobile View (hidden in print) -->
+        <div class="md:hidden divide-y no-print">
             {% for invoice in invoices %}
             <div class="p-4 space-y-3">
                 <div class="flex justify-between items-start">
@@ -146,9 +191,10 @@
                 <div class="flex justify-between text-red-600"><span>Pending:</span> <span>₹{{ "{:,.2f}".format(total_pending) }}</span></div>
             </div>
         </div>
-        <!-- Desktop View -->
-        <div class="hidden md:block overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+
+        <!-- Desktop View (always shown in print) -->
+        <div class="hidden md:block overflow-x-auto print-table">
+            <table class="min-w-full divide-y divide-gray-200 report-table">
                 <thead class="bg-gray-100 border-b border-gray-200">
                     <tr>
                         <th class="px-2 py-2 text-left text-xs font-medium text-gray-700 whitespace-nowrap">Date</th>
@@ -217,7 +263,7 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="15" class="px-4 py-8 text-center text-gray-500">No records found</td>
+                            <td colspan="17" class="px-4 py-8 text-center text-gray-500">No records found</td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -236,7 +282,7 @@
             </table>
         </div>
         {% else %}
-        <div class="text-center py-12">
+        <div class="text-center py-12 no-print">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
@@ -247,9 +293,109 @@
 </div>
 
 <style>
+/* Print styles */
+@page {
+    size: A4 landscape;
+    margin: 8mm;
+}
+
 @media print {
-    .no-print { display: none !important; }
-    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    /* Hide everything from base layout */
+    nav, aside, .no-print,
+    #license-banner, #toast-container, #loading-overlay, #confirm-overlay,
+    .sidebar-overlay { display: none !important; }
+
+    /* Reset body/layout */
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        font-size: 8pt !important;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+
+    /* Remove layout offsets from base template */
+    #main-wrapper {
+        padding-top: 0 !important;
+        display: block !important;
+    }
+    #main-wrapper > main {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Show print-only elements */
+    .print-header { display: block !important; }
+    .print-summary { display: block !important; }
+
+    /* Force table view visible (override md:hidden / hidden md:block) */
+    .print-table {
+        display: block !important;
+        overflow: visible !important;
+    }
+
+    /* Clean up table container */
+    .print-table-wrapper {
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+
+    /* Table formatting */
+    .report-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 7pt !important;
+    }
+    .report-table th {
+        background-color: #e5e7eb !important;
+        border: 1px solid #d1d5db !important;
+        padding: 3px 4px !important;
+        font-size: 7pt !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
+    }
+    .report-table td {
+        border: 1px solid #e5e7eb !important;
+        padding: 2px 4px !important;
+        font-size: 7pt !important;
+        vertical-align: top !important;
+    }
+    .report-table tbody tr {
+        page-break-inside: avoid !important;
+    }
+    .report-table thead {
+        display: table-header-group !important;
+    }
+    .report-table tfoot {
+        display: table-footer-group !important;
+    }
+    .report-table tfoot td {
+        background-color: #f3f4f6 !important;
+        border-top: 2px solid #9ca3af !important;
+        font-weight: 600 !important;
+    }
+
+    /* Status badges */
+    .report-table .bg-green-100 { background-color: #dcfce7 !important; color: #15803d !important; }
+    .report-table .bg-yellow-100 { background-color: #fef9c3 !important; color: #a16207 !important; }
+    .report-table .bg-red-100 { background-color: #fee2e2 !important; color: #b91c1c !important; }
+
+    /* Color preservation */
+    .text-green-600 { color: #16a34a !important; }
+    .text-red-600 { color: #dc2626 !important; }
+    .text-orange-600 { color: #ea580c !important; }
+    .text-blue-600 { color: #2563eb !important; }
+
+    /* Links should look like plain text in print */
+    a { color: inherit !important; text-decoration: none !important; }
+}
+
+/* Screen: hide print-only elements */
+@media screen {
+    .print-header { display: none !important; }
+    .print-summary { display: none !important; }
 }
 </style>
 {% endblock %}

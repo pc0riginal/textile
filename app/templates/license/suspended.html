@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Suspended - Textile ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-red-50 to-orange-50 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full p-8">
+        <div class="text-center">
+            <div class="mx-auto h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">License Suspended</h1>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+            <div class="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+                <p class="text-sm text-red-800 font-medium">Reason</p>
+                <p class="text-sm text-red-700 mt-1">{{ reason }}</p>
+            </div>
+
+            <p class="text-sm text-gray-600 mb-4">
+                Your access to this application has been temporarily suspended. Please contact the administrator to resolve this issue.
+            </p>
+
+            {% if license and license.customer_name %}
+            <div class="text-xs text-gray-400 border-t border-gray-100 pt-3">
+                Instance: {{ license.customer_name }}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/auth/login" class="text-sm text-gray-500 hover:text-gray-700">Try logging in again</a>
+        </div>
+    </div>
+</body>
+</html>

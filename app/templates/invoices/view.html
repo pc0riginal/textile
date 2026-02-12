@@ -4,25 +4,25 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-4">
-    <div class="flex justify-between items-center">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Invoice #{{ invoice.invoice_no }}</h1>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Invoice #{{ invoice.invoice_no }}</h1>
             <p class="text-sm text-gray-600">{{ invoice.invoice_date.strftime('%d %b %Y') if invoice.invoice_date else '' }}</p>
         </div>
-        <div class="flex gap-2">
-            <a href="/invoices/{{ invoice._id }}/edit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Edit</a>
-            <a href="/invoices/{{ invoice._id }}/print" target="_blank" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Print Invoice</a>
+        <div class="flex flex-wrap gap-2">
+            <a href="/invoices/{{ invoice._id }}/edit" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Edit</a>
+            <a href="/invoices/{{ invoice._id }}/print" target="_blank" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">Print</a>
             {% if invoice.payment_status not in ['paid', 'partial'] %}
-            <button onclick="deleteInvoice()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+            <button onclick="deleteInvoice()" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">Delete</button>
             {% endif %}
-            <a href="/invoices" class="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200">Back</a>
+            <a href="/invoices" class="px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">Back</a>
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow p-6 space-y-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 space-y-4 md:space-y-6">
         <div>
             <h3 class="text-lg font-semibold mb-3 border-b pb-2">Invoice Details</h3>
-            <div class="grid grid-cols-3 gap-4 text-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div><span class="text-gray-600">Invoice No:</span> <span class="font-medium">{{ invoice.invoice_no }}</span></div>
                 <div><span class="text-gray-600">Challan No:</span> <span class="font-medium">{{ invoice.challan_no }}</span></div>
                 <div><span class="text-gray-600">Date:</span> <span class="font-medium">{{ invoice.invoice_date.strftime('%d %b %Y') if invoice.invoice_date else '-' }}</span></div>
@@ -34,7 +34,22 @@
 
         <div>
             <h3 class="text-lg font-semibold mb-3 border-b pb-2">Items</h3>
-            <table class="w-full text-sm">
+            <!-- Mobile Card View -->
+            <div class="md:hidden space-y-2">
+                {% for item in invoice.get('items', []) %}
+                <div class="border rounded-lg p-3">
+                    <div class="font-medium text-sm mb-1">{{ item.get('quality') }}</div>
+                    <div class="grid grid-cols-2 gap-1 text-xs text-gray-600">
+                        <div>Taka: {{ item.get('total_taka') }}</div>
+                        <div>Meters: {{ "%.2f"|format(item.get('meters', 0)) }}</div>
+                        <div>Rate: ₹{{ "%.2f"|format(item.get('rate_per_meter', 0)) }}</div>
+                        <div class="font-medium text-gray-900">₹{{ "%.2f"|format(item.get('taxable_amount', 0)) }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <!-- Desktop Table View -->
+            <table class="w-full text-sm hidden md:table">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-2 text-left">Quality</th>

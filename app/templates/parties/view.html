@@ -4,21 +4,21 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-4">
-    <div class="flex justify-between items-center">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">{{ party.name }}</h1>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900">{{ party.name }}</h1>
             <p class="text-sm text-gray-600">{{ party.party_type|title }} - {{ party.party_code }}</p>
         </div>
         <div class="flex gap-2">
-            <a href="/parties/{{ party._id }}/edit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Edit</a>
-            <a href="/parties" class="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200">Back</a>
+            <a href="/parties/{{ party._id }}/edit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Edit</a>
+            <a href="/parties" class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">Back</a>
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow p-6 space-y-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 space-y-4 md:space-y-6">
         <div>
             <h3 class="text-lg font-semibold mb-3 border-b pb-2">Basic Information</h3>
-            <div class="grid grid-cols-2 gap-4 text-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><span class="text-gray-600">Party Code:</span> <span class="font-medium">{{ party.party_code }}</span></div>
                 <div><span class="text-gray-600">Party Type:</span> <span class="font-medium">{{ party.party_type|title }}</span></div>
                 <div><span class="text-gray-600">GSTIN:</span> <span class="font-medium">{{ party.gstin or '-' }}</span></div>
@@ -44,7 +44,7 @@
 
         <div>
             <h3 class="text-lg font-semibold mb-3 border-b pb-2">Contact Information</h3>
-            <div class="grid grid-cols-2 gap-4 text-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><span class="text-gray-600">Phone:</span> <span class="font-medium">{{ party.contact.phone or '-' }}</span></div>
                 <div><span class="text-gray-600">Email:</span> <span class="font-medium">{{ party.contact.email or '-' }}</span></div>
                 <div><span class="text-gray-600">Contact Person:</span> <span class="font-medium">{{ party.contact.contact_person or '-' }}</span></div>
@@ -53,7 +53,7 @@
 
         <div>
             <h3 class="text-lg font-semibold mb-3 border-b pb-2">Financial Settings</h3>
-            <div class="grid grid-cols-2 gap-4 text-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><span class="text-gray-600">Broker:</span> <span class="font-medium">{{ broker.name if broker else '-' }}</span></div>
                 <div><span class="text-gray-600">Brokerage:</span> <span class="font-medium">{{ party.brokerage or 0 }}%</span></div>
                 <div><span class="text-gray-600">Dhara Day:</span> <span class="font-medium">{{ party.dhara_day or 0 }} days</span></div>

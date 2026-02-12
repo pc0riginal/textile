@@ -3,15 +3,15 @@
 {% block title %}Create Company - Textile ERP{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-4xl mx-auto space-y-4 md:space-y-6">
     <!-- Page Header -->
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Create New Company</h1>
-        <p class="text-gray-600">Add a new business entity to your account</p>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900">Create New Company</h1>
+        <p class="text-sm text-gray-600">Add a new business entity to your account</p>
     </div>
 
     <!-- Form -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
         {% if error %}
         <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
             {{ error }}
@@ -21,8 +21,8 @@
         <form method="POST" action="/companies/create" class="space-y-6" onsubmit="return validateForm()">
             <!-- Basic Information -->
             <div>
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">Basic Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div>
                         <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
                         <input type="text" id="name" name="name" required
@@ -59,7 +59,7 @@
 
             <!-- Address -->
             <div>
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Address</h3>
+                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">Address</h3>
                 <div class="space-y-4">
                     <div>
                         <label for="address_line1" class="block text-sm font-medium text-gray-700 mb-2">Address Line 1 *</label>
@@ -99,8 +99,8 @@
 
             <!-- Contact Information -->
             <div>
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Contact Information</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">Contact Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div>
                         <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
                         <input type="tel" id="phone" name="phone" required maxlength="10"
@@ -126,8 +126,8 @@
 
             <!-- Document Series -->
             <div>
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Document Series</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">Document Series</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div>
                         <label for="invoice_series" class="block text-sm font-medium text-gray-700 mb-2">Invoice Series</label>
                         <input type="text" id="invoice_series" name="invoice_series" value="INV"
@@ -145,11 +145,11 @@
             </div>
 
             <!-- Form Actions -->
-            <div class="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-                <a href="/companies" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4 pt-4 md:pt-6 border-t border-gray-200">
+                <a href="/companies" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 text-center text-sm">
                     Cancel
                 </a>
-                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
                     Create Company
                 </button>
             </div>
@@ -196,6 +196,10 @@ function validateForm() {
         showError('name', 'Company name is required');
         isValid = false;
         if (!firstError) firstError = name;
+    } else if (/^\d+$/.test(name.value.trim())) {
+        showError('name', 'Company name must contain letters');
+        isValid = false;
+        if (!firstError) firstError = name;
     }
     
     // Validate GSTIN
@@ -208,12 +212,20 @@ function validateForm() {
         showError('gstin', 'GSTIN must be exactly 15 characters');
         isValid = false;
         if (!firstError) firstError = gstin;
+    } else if (!/^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][A-Z\d]$/.test(gstin.value)) {
+        showError('gstin', 'Invalid GSTIN format (e.g. 22AAAAA0000A1Z5)');
+        isValid = false;
+        if (!firstError) firstError = gstin;
     }
     
     // Validate PAN
     const pan = document.getElementById('pan');
     if (pan.value && pan.value.length !== 10) {
         showError('pan', 'PAN must be exactly 10 characters');
+        isValid = false;
+        if (!firstError) firstError = pan;
+    } else if (pan.value && !/^[A-Z]{5}\d{4}[A-Z]{1}$/.test(pan.value)) {
+        showError('pan', 'Invalid PAN format (e.g. AAAAA0000A)');
         isValid = false;
         if (!firstError) firstError = pan;
     }

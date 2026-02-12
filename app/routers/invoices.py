@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -8,6 +10,7 @@ from typing import List
 from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
 from app.database import get_collection
 from app.services.audit_service import AuditService
+from app.services.payment_service import enrich_invoices_with_payments, calculate_single_invoice_paid, determine_invoice_payment_status
 from app.utils import number_to_words
 from app.logger import logger
 
@@ -16,41 +19,44 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.get("")
 async def list_invoices(
-    context: dict = Depends(get_template_context)
+    request: Request,
+    context: dict = Depends(get_template_context),
+    search: str = "",
+    status: str = "",
+    page: int = 1,
 ):
     invoices_collection = await get_collection("sales_invoices")
-    payments_collection = await get_collection("payments")
-    
-    invoices = await invoices_collection.find(
-        get_company_filter(context["current_company"])
-    ).sort("invoice_date", -1).to_list(None)
-    
-    today = datetime.utcnow()
-    for inv in invoices:
-        # Calculate actual paid amount
-        existing_payments = await payments_collection.find({"invoices.invoice_id": inv["_id"]}).to_list(None)
-        total_paid = sum(
-            item["amount"] for p in existing_payments 
-            for item in p.get("invoices", []) 
-            if item["invoice_id"] == inv["_id"]
-        )
-        inv["total_paid"] = total_paid
-        
-        # Calculate interest if overdue
-        interest = 0
-        if inv.get("due_date") and inv.get("payment_status") != "paid":
-            if today > inv["due_date"]:
-                overdue_days = (today - inv["due_date"]).days
-                balance = inv["total_amount"] - total_paid
-                interest_rate = inv.get("interest_rate", 0)
-                if interest_rate > 0 and balance > 0:
-                    interest = (balance * interest_rate * overdue_days) / (365 * 100)
-        
-        inv["interest_amount"] = interest
-        inv["outstanding"] = inv["total_amount"] - total_paid
-    
+    per_page = 25
+    skip = (page - 1) * per_page
+
+    filter_query = get_company_filter(context["current_company"])
+
+    if search:
+        from app.services.payment_service import escape_regex
+        safe = escape_regex(search)
+        filter_query["$or"] = [
+            {"invoice_no": {"$regex": safe, "$options": "i"}},
+            {"customer_name": {"$regex": safe, "$options": "i"}},
+        ]
+
+    if status:
+        filter_query["payment_status"] = status
+
+    total = await invoices_collection.count_documents(filter_query)
+    total_pages = max(1, -(-total // per_page))
+
+    invoices = await invoices_collection.find(filter_query).sort("invoice_date", -1).skip(skip).limit(per_page).to_list(per_page)
+
+    # Bulk calculate payments — single aggregation instead of N+1 queries
+    await enrich_invoices_with_payments(invoices)
+
     context.update({
         "invoices": invoices,
+        "search": search,
+        "selected_status": status,
+        "page": page,
+        "total_pages": total_pages,
+        "total": total,
         "breadcrumbs": [
             {"name": "Dashboard", "url": "/dashboard"},
             {"name": "Sales Invoices", "url": "/invoices"}
@@ -62,8 +68,6 @@ async def list_invoices(
 async def sales_report(
     context: dict = Depends(get_template_context)
 ):
-    from datetime import datetime, timedelta
-    
     request = context["request"]
     current_company = context["current_company"]
     
@@ -102,38 +106,22 @@ async def sales_report(
     
     invoices = await invoices_collection.find(filter_query).sort("invoice_date", -1).to_list(None)
     
-    today = datetime.utcnow()
-    payments_collection = await get_collection("payments")
+    # Bulk enrich with payment data
+    await enrich_invoices_with_payments(invoices)
     
+    today = datetime.utcnow()
     for inv in invoices:
         if inv.get("broker_id"):
             broker = await parties_collection.find_one({"_id": inv["broker_id"]})
             if broker:
                 inv["broker_name"] = broker["name"]
         
-        # Calculate actual paid amount from payments
-        existing_payments = await payments_collection.find({"invoices.invoice_id": inv["_id"]}).to_list(None)
-        total_paid = sum(
-            item["amount"] for p in existing_payments 
-            for item in p.get("invoices", []) 
-            if item["invoice_id"] == inv["_id"]
-        )
-        inv["total_paid"] = total_paid
-        inv["balance_amount"] = inv["total_amount"] - total_paid
-        
-        # Calculate interest for overdue invoices
-        inv["interest_amount"] = 0
-        if inv.get("due_date") and inv.get("payment_status") != "paid":
-            if today > inv["due_date"]:
-                overdue_days = (today - inv["due_date"]).days
-                outstanding = inv["balance_amount"]
-                interest_rate = inv.get("interest_rate", 0)
-                if interest_rate > 0:
-                    inv["interest_amount"] = (outstanding * interest_rate * overdue_days) / (365 * 100)
-                inv["overdue_days"] = overdue_days
+        inv["balance_amount"] = inv["outstanding"]
+        if inv.get("due_date") and inv.get("payment_status") != "paid" and today > inv["due_date"]:
+            inv["overdue_days"] = (today - inv["due_date"]).days
     
     total_sales = sum(inv.get("total_amount", 0) for inv in invoices)
-    total_paid = sum(inv.get("total_paid", inv.get("paid_amount", 0)) for inv in invoices)
+    total_paid = sum(inv.get("total_paid", 0) for inv in invoices)
     total_pending = total_sales - total_paid
     total_interest = sum(inv.get("interest_amount", 0) for inv in invoices)
     total_outstanding = total_pending
@@ -142,6 +130,20 @@ async def sales_report(
     customers = await parties_collection.find({**base_filter, "party_type": {"$in": ["customer", "both"]}}).sort("name", 1).to_list(None) or []
     brokers = await parties_collection.find({**base_filter, "party_type": {"$in": ["broker", "both"]}}).sort("name", 1).to_list(None) or []
     qualities = await qualities_collection.find(base_filter).sort("name", 1).to_list(None) or []
+    
+    # Resolve selected filter names for print header
+    selected_customer_name = ""
+    if customer_id:
+        for c in customers:
+            if str(c["_id"]) == customer_id:
+                selected_customer_name = c["name"]
+                break
+    selected_broker_name = ""
+    if broker_id:
+        for b in brokers:
+            if str(b["_id"]) == broker_id:
+                selected_broker_name = b["name"]
+                break
     
     context.update({
         "invoices": invoices,
@@ -152,6 +154,8 @@ async def sales_report(
         "broker_id": broker_id,
         "quality": quality,
         "payment_filter": payment_filter,
+        "selected_customer_name": selected_customer_name,
+        "selected_broker_name": selected_broker_name,
         "total_sales": total_sales,
         "total_paid": total_paid,
         "total_pending": total_pending,
@@ -159,6 +163,7 @@ async def sales_report(
         "total_outstanding": total_outstanding,
         "start_date": start_date,
         "end_date": end_date,
+        "generated_at": datetime.utcnow().strftime('%d-%m-%Y %H:%M'),
         "breadcrumbs": [
             {"name": "Dashboard", "url": "/dashboard"},
             {"name": "Sales Invoices", "url": "/invoices"},
@@ -191,7 +196,7 @@ async def create_invoice_form(
     if last_invoice and last_invoice.get("invoice_no"):
         try:
             next_invoice_no = int(last_invoice["invoice_no"]) + 1
-        except:
+        except (ValueError, TypeError, KeyError):
             next_invoice_no = 1
     
     return templates.TemplateResponse("invoices/create.html", {
@@ -232,11 +237,10 @@ async def create_invoice(
     broker_name = form_data.get("broker_name", "NONE")
     
     # Get items from form
-    import json
     items_json = form_data.get("items", "[]")
     try:
         items = json.loads(items_json) if isinstance(items_json, str) else items_json
-    except:
+    except (json.JSONDecodeError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid items data")
     
     if not items:
@@ -294,10 +298,10 @@ async def create_invoice(
                 entity_id=str(result.inserted_id),
                 ip_address=AuditService.get_client_ip(request)
             )
-        except:
+        except Exception:
             pass
         
-        return RedirectResponse(url="/invoices", status_code=302)
+        return RedirectResponse(url="/invoices/create", status_code=302)
     else:
         return templates.TemplateResponse("invoices/create.html", {
             "request": request,
@@ -371,11 +375,10 @@ async def update_invoice(
     invoice_no = form_data.get("invoice_no")
     challan_no = form_data.get("challan_no") or invoice_no
     
-    import json
     items_json = form_data.get("items", "[]")
     try:
         items = json.loads(items_json) if isinstance(items_json, str) else items_json
-    except:
+    except (json.JSONDecodeError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid items data")
     
     if not items:
@@ -415,7 +418,7 @@ async def update_invoice(
             entity_id=invoice_id,
             ip_address=AuditService.get_client_ip(request)
         )
-    except:
+    except Exception:
         pass
     
     return RedirectResponse(url=f"/invoices/{invoice_id}", status_code=302)
@@ -521,7 +524,6 @@ async def delete_invoice(
     current_user: dict = Depends(get_current_user),
     current_company: dict = Depends(get_current_company)
 ):
-    from fastapi.responses import JSONResponse
     invoices_collection = await get_collection("sales_invoices")
     
     invoice = await invoices_collection.find_one({

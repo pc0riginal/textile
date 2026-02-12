@@ -11,32 +11,56 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <style>
         [x-cloak] { display: none !important; }
+        html { scroll-behavior: smooth; }
         @media (max-width: 768px) {
             .mobile-card { transform: translateY(0); transition: transform 0.3s ease; }
             .mobile-card:active { transform: scale(0.98); }
             .mobile-btn { min-height: 44px; min-width: 44px; }
-            /* Prevent horizontal scroll */
             body { overflow-x: hidden; }
-            /* Better touch targets */
             input, select, textarea, button, a { -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1); }
-            /* Smooth scrolling */
-            html { scroll-behavior: smooth; }
-        }
-        .sidebar-overlay { backdrop-filter: blur(2px); }
-        /* Responsive tables */
-        @media (max-width: 768px) {
             table { font-size: 0.875rem; }
         }
+        .sidebar-overlay { backdrop-filter: blur(2px); }
+        /* Table row hover */
+        tbody tr { transition: background-color 0.1s; }
+        /* Striped rows */
+        .table-striped tbody tr:nth-child(even) { background-color: rgb(249 250 251); }
+        .table-striped tbody tr:hover { background-color: rgb(243 244 246) !important; }
+        /* Action icon buttons */
+        .action-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; transition: all 0.15s; }
+        .action-btn:hover { background-color: rgb(243 244 246); }
+        .action-btn svg { width: 16px; height: 16px; }
+        /* Search input focus ring */
+        .search-input:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+        /* Pagination */
+        .page-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; border-radius: 6px; font-size: 0.875rem; font-weight: 500; transition: all 0.15s; border: 1px solid rgb(209 213 219); color: rgb(55 65 81); }
+        .page-btn:hover { background-color: rgb(243 244 246); }
+        .page-btn.active { background-color: rgb(37 99 235); color: white; border-color: rgb(37 99 235); }
+        .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen" x-data="{ sidebarOpen: false }" @click="if(sidebarOpen && !$event.target.closest('aside') && !$event.target.closest('button')) sidebarOpen = false">
     <!-- Navigation -->
     {% include 'components/navbar.html' %}
+
+    <!-- License expiry banner (loaded via JS) -->
+    <div id="license-banner" class="hidden fixed top-16 left-0 right-0 z-40" style="height:36px">
+        <div class="h-full bg-gradient-to-r from-amber-500 to-orange-500 px-4 flex items-center justify-center gap-2 text-sm shadow-sm">
+            <svg class="w-4 h-4 text-white flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span id="license-banner-text" class="text-white font-medium"></span>
+            <a id="license-banner-link" href="/license/pricing" class="text-white underline underline-offset-2 hover:text-amber-100 ml-1 font-semibold"></a>
+            <button id="license-banner-close" class="ml-3 text-white/70 hover:text-white">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+    </div>
     
     <!-- Mobile Overlay -->
     <div x-show="sidebarOpen" x-cloak @click="sidebarOpen = false" class="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden sidebar-overlay"></div>
     
-    <div class="flex pt-16">
+    <div class="flex pt-16" id="main-wrapper">
         <!-- Sidebar -->
         {% include 'components/sidebar.html' %}
         
@@ -81,7 +105,64 @@
         </div>
     </div>
     
+    <!-- Confirm Dialog -->
+    <div id="confirm-overlay" class="hidden fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" style="backdrop-filter:blur(2px)">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <h3 id="confirm-title" class="text-lg font-semibold text-gray-900">Confirm</h3>
+            <p id="confirm-message" class="text-sm text-gray-600"></p>
+            <div class="flex justify-end gap-3 pt-2">
+                <button id="confirm-cancel" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+                <button id="confirm-yes" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Yes, proceed</button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', path='/js/app.js') }}"></script>
+    <script>
+    (async function() {
+        try {
+            var today = new Date().toISOString().slice(0, 10);
+            if (localStorage.getItem('license_banner_dismissed') === today) return;
+
+            const res = await fetch('/license/api/status');
+            const s = await res.json();
+            if (!s.valid || s.days_remaining === null || s.days_remaining === undefined) return;
+
+            const banner = document.getElementById('license-banner');
+            const text = document.getElementById('license-banner-text');
+            const link = document.getElementById('license-banner-link');
+            const d = s.days_remaining;
+            const ds = d !== 1 ? 's' : '';
+
+            if (s.plan === 'free_trial') {
+                text.textContent = 'Free trial ends in ' + d + ' day' + ds + ' —';
+                link.textContent = 'Upgrade now';
+                link.href = '/license/pricing';
+            } else if (d <= 30) {
+                text.textContent = 'License expires in ' + d + ' day' + ds + ' —';
+                link.textContent = 'View details';
+                link.href = '/license/status';
+            } else {
+                return;
+            }
+
+            function showBanner() {
+                banner.classList.remove('hidden');
+                document.getElementById('main-wrapper').style.paddingTop = 'calc(4rem + 36px)';
+                document.querySelectorAll('aside').forEach(function(el) { el.style.top = 'calc(4rem + 36px)'; });
+            }
+            function hideBanner() {
+                banner.classList.add('hidden');
+                document.getElementById('main-wrapper').style.paddingTop = '4rem';
+                document.querySelectorAll('aside').forEach(function(el) { el.style.top = '4rem'; });
+                localStorage.setItem('license_banner_dismissed', today);
+            }
+
+            document.getElementById('license-banner-close').addEventListener('click', hideBanner);
+            showBanner();
+        } catch(e) {}
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

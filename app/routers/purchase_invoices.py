@@ -7,34 +7,46 @@ from typing import List
 
 from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
 from app.database import get_collection
-from app.services.inventory_service import InventoryService
+from app.services.payment_service import enrich_challans_with_payments
 
 router = APIRouter(prefix="/purchase-invoices")
 templates = Jinja2Templates(directory="app/templates")
 
 @router.get("")
 async def list_purchase_invoices(
-    context: dict = Depends(get_template_context)
+    request: Request,
+    context: dict = Depends(get_template_context),
+    search: str = "",
+    page: int = 1,
 ):
     challans_collection = await get_collection("purchase_challans")
-    payments_collection = await get_collection("payments")
-    
-    challans = await challans_collection.find(
-        get_company_filter(context["current_company"])
-    ).sort("challan_date", -1).to_list(None)
-    
-    for challan in challans:
-        existing_payments = await payments_collection.find({"invoices.challan_id": challan["_id"]}).to_list(None)
-        total_paid = sum(
-            inv["amount"] for p in existing_payments 
-            for inv in p.get("invoices", []) 
-            if inv["challan_id"] == challan["_id"]
-        )
-        challan["total_paid"] = total_paid
-        challan["outstanding"] = challan["total_amount"] - total_paid
-    
+    per_page = 25
+    skip = (page - 1) * per_page
+
+    filter_query = get_company_filter(context["current_company"])
+
+    if search:
+        from app.services.payment_service import escape_regex
+        safe = escape_regex(search)
+        filter_query["$or"] = [
+            {"challan_no": {"$regex": safe, "$options": "i"}},
+            {"supplier_name": {"$regex": safe, "$options": "i"}},
+        ]
+
+    total = await challans_collection.count_documents(filter_query)
+    total_pages = max(1, -(-total // per_page))
+
+    challans = await challans_collection.find(filter_query).sort("challan_date", -1).skip(skip).limit(per_page).to_list(per_page)
+
+    # Bulk calculate payments — single aggregation instead of N+1 queries
+    await enrich_challans_with_payments(challans)
+
     context.update({
         "challans": challans,
+        "search": search,
+        "page": page,
+        "total_pages": total_pages,
+        "total": total,
         "breadcrumbs": [
             {"name": "Dashboard", "url": "/dashboard"},
             {"name": "Purchase Invoices", "url": "/purchase-invoices"}
@@ -82,7 +94,7 @@ async def create_challan_form(
         last_no = last_invoice[0].get("invoice_no", "0")
         try:
             next_invoice_no = str(int(last_no) + 1)
-        except:
+        except (ValueError, TypeError):
             next_invoice_no = "1"
     
     return templates.TemplateResponse("purchase_invoices/create.html", {
@@ -176,7 +188,7 @@ async def create_challan(
     result = await challans_collection.insert_one(challan_data)
     
     if result.inserted_id:
-        return RedirectResponse(url="/purchase-invoices", status_code=302)
+        return RedirectResponse(url="/purchase-invoices/create", status_code=302)
     else:
         raise HTTPException(status_code=500, detail="Failed to create challan")
 
