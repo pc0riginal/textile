@@ -1,6 +1,11 @@
 import os
+import sys
 import secrets
 from decouple import config
+
+# When running as a PyInstaller bundle, .env lives next to the executable
+if getattr(sys, "frozen", False):
+    os.chdir(os.path.dirname(sys.executable))
 
 class Settings:
     MONGODB_URL: str = config("MONGODB_URL", default="mongodb://localhost:27017")
@@ -11,6 +16,7 @@ class Settings:
     UPLOAD_DIR: str = config("UPLOAD_DIR", default="app/static/uploads")
     ALLOWED_ORIGINS: str = config("ALLOWED_ORIGINS", default="http://localhost:8000")
     ADMIN_SECRET: str = config("ADMIN_SECRET", default="")
+    LICENSE_SIGN_SECRET: str = config("LICENSE_SIGN_SECRET", default="change-me-in-production")
 
     def __init__(self):
         if not self.SECRET_KEY:

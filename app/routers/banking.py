@@ -3,13 +3,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from bson import ObjectId
 from datetime import datetime
+from app import TEMPLATES_DIR
 from app.dependencies import get_current_user, get_current_company, get_template_context
 from app.database import get_collection
 from app.utils import number_to_words
 from app.logger import logger
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
 # ── Cheque Number Helper ───────────────────────────────────────────

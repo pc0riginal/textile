@@ -7,6 +7,7 @@ from datetime import datetime
 from bson import ObjectId
 from typing import List
 
+from app import TEMPLATES_DIR
 from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
 from app.database import get_collection
 from app.services.audit_service import AuditService
@@ -15,7 +16,7 @@ from app.utils import number_to_words
 from app.logger import logger
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @router.get("")
 async def list_invoices(

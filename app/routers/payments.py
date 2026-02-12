@@ -7,6 +7,7 @@ from datetime import datetime
 from bson import ObjectId
 from typing import Optional, List
 
+from app import TEMPLATES_DIR
 from app.dependencies import get_current_user, get_current_company, get_template_context, get_company_filter
 from app.database import get_collection
 from app.services.audit_service import AuditService
@@ -20,7 +21,7 @@ from app.logger import logger
 from urllib.parse import urlencode
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
 async def _maybe_cheque_redirect(form_data: dict, payee: str, amount: float, fallback_url: str):

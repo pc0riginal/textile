@@ -5,12 +5,13 @@ from datetime import datetime
 from bson import ObjectId
 from typing import List
 
+from app import TEMPLATES_DIR
 from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
 from app.database import get_collection
 from app.services.payment_service import enrich_challans_with_payments
 
 router = APIRouter(prefix="/purchase-invoices")
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @router.get("")
 async def list_purchase_invoices(

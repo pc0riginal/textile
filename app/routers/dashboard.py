@@ -3,11 +3,12 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 from bson import ObjectId
 
+from app import TEMPLATES_DIR
 from app.dependencies import get_current_user, get_current_company, get_company_filter
 from app.database import get_collection
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @router.get("/dashboard")
 async def dashboard(

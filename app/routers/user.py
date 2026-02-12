@@ -3,11 +3,12 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from bson import ObjectId
 
+from app import TEMPLATES_DIR
 from app.dependencies import get_current_user, get_current_company
 from app.database import get_collection
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @router.get("/profile")
 async def profile(

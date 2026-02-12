@@ -25,6 +25,19 @@
             </div>
             {% endif %}
 
+            <script>
+                // Show device limit error from query param
+                if (new URLSearchParams(window.location.search).get('error') === 'device_limit') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const container = document.querySelector('.bg-white.rounded-lg');
+                        const alert = document.createElement('div');
+                        alert.className = 'mb-4 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-3 rounded-md text-sm';
+                        alert.innerHTML = '<strong>Device Limit Reached</strong> — This license is already activated on another machine. Contact your administrator to reset devices.';
+                        container.insertBefore(alert, container.firstChild);
+                    });
+                }
+            </script>
+
             {% if license_status and license_status.valid %}
             <div class="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
                 License is active: {{ license_status.plan_name }}

@@ -2,19 +2,20 @@ from fastapi import APIRouter, Request, Depends, Form, HTTPException, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse
 
+from app import TEMPLATES_DIR
 from app.dependencies import get_current_user
 from app.services.license_service import (
     activate_license, check_license_status, get_license,
     renew_license, register_device, PLANS,
     extend_trial, suspend_license, reactivate_license,
     change_plan, reset_devices, get_admin_log,
-    generate_license_key,
+    generate_license_key, create_backup, restore_backup, list_backups,
 )
 from app.enums import PlanType
 from config import settings as app_settings
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
 def verify_admin_secret(request: Request):
@@ -270,3 +271,40 @@ async def admin_generate_key(
         raise HTTPException(status_code=400, detail=f"Unknown plan: {plan}")
     key = generate_license_key(plan, customer_name, customer_email, customer_phone)
     return JSONResponse(content={"success": True, "license_key": key})
+
+
+# ── Backup & Restore endpoints ────────────────────────────────────────────────
+
+@router.get("/backup/list")
+async def backup_list(request: Request, current_user: dict = Depends(get_current_user)):
+    """List available backups."""
+    # Check if backup is enabled
+    status = await check_license_status()
+    if not status.get("backup_enabled"):
+        raise HTTPException(status_code=403, detail="Backup is not enabled on your plan")
+    backups = list_backups()
+    return JSONResponse(content={"success": True, "backups": backups})
+
+
+@router.post("/backup/create")
+async def backup_create(request: Request, current_user: dict = Depends(get_current_user)):
+    """Create a new backup."""
+    try:
+        result = await create_backup(created_by=str(current_user["_id"]))
+        return JSONResponse(content={"success": True, **result})
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/backup/restore")
+async def backup_restore(
+    request: Request,
+    filename: str = Form(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Restore from a backup file."""
+    try:
+        result = await restore_backup(filename, restored_by=str(current_user["_id"]))
+        return JSONResponse(content={"success": True, **result})
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))

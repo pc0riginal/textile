@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from datetime import datetime, timedelta
 from bson import ObjectId
 
+from app import TEMPLATES_DIR
 from app.database import get_collection
 from app.auth import verify_password, get_password_hash, create_access_token, verify_token
 from app.models.user import UserCreate, UserLogin
@@ -12,7 +13,7 @@ from app.services.audit_service import AuditService
 from config import settings
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @router.get("/login")
 async def login_page(request: Request):

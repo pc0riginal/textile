@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
+from app import BASE_DIR, TEMPLATES_DIR, STATIC_DIR
 from app.database import connect_to_mongo, close_mongo_connection
 from app.indexes import ensure_indexes
 from app.routers import auth, dashboard, companies, parties, purchase_invoices, invoices, payments, user, settings, banking, reports, qualities
@@ -39,7 +40,7 @@ app.add_middleware(
 )
 
 # Static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.middleware("http")
@@ -57,13 +58,15 @@ async def license_check_middleware(request: Request, call_next):
             return RedirectResponse(url="/license/suspended", status_code=302)
         elif reason == "expired":
             return RedirectResponse(url="/license/expired", status_code=302)
+        elif reason == "device_limit":
+            return RedirectResponse(url="/license/activate?error=device_limit", status_code=302)
         else:
             return RedirectResponse(url="/license/activate", status_code=302)
 
     return await call_next(request)
 
 # Templates
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Include routers
 app.include_router(license_router.router, prefix="/license", tags=["License"])
@@ -108,4 +111,4 @@ async def root(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

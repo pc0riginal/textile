@@ -1,7 +1,14 @@
 """License management — validates plan, expiry, and device limits per instance."""
 import hashlib
+import hmac
 import json
 import base64
+import platform
+import uuid
+import subprocess
+import os
+import sys
+import shutil
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from bson import ObjectId
@@ -9,6 +16,12 @@ from bson import ObjectId
 from app.database import get_collection
 from app.enums import PlanType, LicenseStatus
 from app.logger import logger
+
+# ── Secret used to sign license keys ──────────────────────────────────────────
+# Set LICENSE_SIGN_SECRET in .env on YOUR admin machine. Keep it private.
+from config import settings as app_settings
+
+LICENSE_SIGN_SECRET = getattr(app_settings, "LICENSE_SIGN_SECRET", "change-me-in-production")
 
 
 # Plan definitions
@@ -58,17 +71,95 @@ async def get_license() -> Optional[Dict[str, Any]]:
     return await collection.find_one({"_id": "instance_license"})
 
 
-async def activate_license(license_key: str, activated_by: str) -> Dict[str, Any]:
-    """Activate a license key on this instance.
+# ── Hardware fingerprint ──────────────────────────────────────────────────────
+
+def get_machine_id() -> str:
+    """Generate a stable hardware fingerprint for this machine.
     
-    License key format: base64-encoded JSON with plan, customer, expiry info.
-    In production, you'd sign this with HMAC — for now, simple base64 + checksum.
+    Combines MAC address + platform-specific ID + hostname so it stays
+    stable across reboots and is hard to spoof.
     """
+    parts = []
+
+    # 1. MAC address
+    mac = uuid.getnode()
+    if mac:
+        parts.append(f"mac:{mac}")
+
+    # 2. Platform-specific machine ID
+    system = platform.system()
+    try:
+        if system == "Linux":
+            if os.path.exists("/etc/machine-id"):
+                with open("/etc/machine-id") as f:
+                    parts.append(f"mid:{f.read().strip()}")
+        elif system == "Darwin":
+            result = subprocess.run(
+                ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+                capture_output=True, text=True, timeout=5
+            )
+            for line in result.stdout.splitlines():
+                if "IOPlatformUUID" in line:
+                    hw_uuid = line.split('"')[-2]
+                    parts.append(f"hwuuid:{hw_uuid}")
+                    break
+        elif system == "Windows":
+            result = subprocess.run(
+                ["reg", "query", r"HKLM\SOFTWARE\Microsoft\Cryptography", "/v", "MachineGuid"],
+                capture_output=True, text=True, timeout=5
+            )
+            for line in result.stdout.splitlines():
+                if "MachineGuid" in line:
+                    guid = line.strip().split()[-1]
+                    parts.append(f"wguid:{guid}")
+                    break
+    except Exception as e:
+        logger.warning(f"Could not read platform machine ID: {e}")
+
+    # 3. Hostname as weak fallback
+    parts.append(f"host:{platform.node()}")
+
+    raw = "|".join(parts)
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+# ── License key signing & verification ────────────────────────────────────────
+
+def _sign_payload(payload: str) -> str:
+    """Create HMAC-SHA256 signature for a payload string."""
+    return hmac.new(
+        LICENSE_SIGN_SECRET.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
+
+
+def _verify_and_decode_key(license_key: str) -> Dict[str, Any]:
+    """Decode and verify HMAC signature of a license key."""
     try:
         decoded = base64.b64decode(license_key).decode("utf-8")
-        data = json.loads(decoded)
     except Exception:
         raise ValueError("Invalid license key format")
+
+    if "." not in decoded:
+        # Legacy unsigned key — accept for backward compat but warn
+        try:
+            data = json.loads(decoded)
+            logger.warning("Legacy unsigned license key accepted — re-issue a signed key")
+            return data
+        except Exception:
+            raise ValueError("Invalid license key format")
+
+    payload, signature = decoded.rsplit(".", 1)
+    expected_sig = _sign_payload(payload)
+
+    if not hmac.compare_digest(signature, expected_sig):
+        raise ValueError("License key signature is invalid — key may be tampered or forged")
+
+    return json.loads(payload)
+
+
+async def activate_license(license_key: str, activated_by: str) -> Dict[str, Any]:
+    """Activate a license key on this instance. Verifies signature and binds to device."""
+    data = _verify_and_decode_key(license_key)
 
     required_fields = ["plan", "customer_name", "issued_at"]
     for field in required_fields:
@@ -87,6 +178,9 @@ async def activate_license(license_key: str, activated_by: str) -> Dict[str, Any
     if plan_info["duration_days"]:
         expires_at = issued_at + timedelta(days=plan_info["duration_days"])
 
+    # Bind to this machine
+    device_id = get_machine_id()
+
     license_doc = {
         "_id": "instance_license",
         "license_key": license_key,
@@ -100,7 +194,7 @@ async def activate_license(license_key: str, activated_by: str) -> Dict[str, Any
         "issued_at": issued_at,
         "expires_at": expires_at,
         "status": LicenseStatus.ACTIVE.value,
-        "devices": [],
+        "devices": [device_id],
         "activated_at": datetime.utcnow(),
         "activated_by": activated_by,
         "renewal_history": [],
@@ -108,16 +202,20 @@ async def activate_license(license_key: str, activated_by: str) -> Dict[str, Any
 
     collection = await get_collection("license")
     await collection.replace_one({"_id": "instance_license"}, license_doc, upsert=True)
-    logger.info(f"License activated: {plan_type} for {data['customer_name']}")
+    logger.info(f"License activated: {plan_type} for {data['customer_name']} on device {device_id[:12]}...")
     return license_doc
 
 
 async def check_license_status() -> Dict[str, Any]:
-    """Check current license validity. Returns status info dict."""
+    """Check current license validity including device binding."""
     license_doc = await get_license()
 
     if not license_doc:
         return {"valid": False, "reason": "no_license", "message": "No license activated"}
+
+    # Check suspension
+    if license_doc.get("status") == LicenseStatus.SUSPENDED.value:
+        return {"valid": False, "reason": "suspended", "message": "License is suspended"}
 
     # Check expiry
     if license_doc.get("expires_at") and datetime.utcnow() > license_doc["expires_at"]:
@@ -129,8 +227,25 @@ async def check_license_status() -> Dict[str, Any]:
             "expired_at": license_doc["expires_at"],
         }
 
-    if license_doc.get("status") == LicenseStatus.SUSPENDED.value:
-        return {"valid": False, "reason": "suspended", "message": "License is suspended"}
+    # Check device binding — is this machine allowed?
+    device_id = get_machine_id()
+    registered_devices = license_doc.get("devices", [])
+    if registered_devices and device_id not in registered_devices:
+        max_devices = license_doc.get("max_devices", 1)
+        if len(registered_devices) >= max_devices:
+            return {
+                "valid": False,
+                "reason": "device_limit",
+                "message": f"This license is bound to another machine. Max {max_devices} device(s) allowed.",
+            }
+        else:
+            # Auto-register if under limit (for online plan with 3 devices)
+            collection = await get_collection("license")
+            await collection.update_one(
+                {"_id": "instance_license"},
+                {"$addToSet": {"devices": device_id}}
+            )
+            logger.info(f"New device auto-registered: {device_id[:12]}...")
 
     plan_info = PLANS.get(PlanType(license_doc["plan"]), {})
     days_remaining = None
@@ -210,9 +325,10 @@ async def renew_license(renewed_by: str) -> Dict[str, Any]:
 
 def generate_license_key(plan: str, customer_name: str, customer_email: str = "",
                          customer_phone: str = "") -> str:
-    """Generate a license key (run this on YOUR admin machine, not the customer's).
+    """Generate a SIGNED license key. Run on YOUR admin machine only.
     
-    Usage: python -c "from app.services.license_service import generate_license_key; print(generate_license_key('online', 'Customer Name', '[email]', '[phone]'))"
+    The key = base64( JSON_payload + "." + HMAC_signature )
+    Nobody can forge this without knowing LICENSE_SIGN_SECRET.
     """
     data = {
         "plan": plan,
@@ -221,7 +337,10 @@ def generate_license_key(plan: str, customer_name: str, customer_email: str = ""
         "customer_phone": customer_phone,
         "issued_at": datetime.utcnow().isoformat(),
     }
-    return base64.b64encode(json.dumps(data).encode("utf-8")).decode("utf-8")
+    payload = json.dumps(data, sort_keys=True)
+    signature = _sign_payload(payload)
+    signed = payload + "." + signature
+    return base64.b64encode(signed.encode("utf-8")).decode("utf-8")
 
 
 # ── Admin operations ──────────────────────────────────────────────────────────
@@ -398,3 +517,143 @@ async def get_admin_log() -> list:
     if not license_doc:
         return []
     return license_doc.get("admin_actions", [])
+
+
+# ── Backup & Restore ──────────────────────────────────────────────────────────
+
+BACKUP_DIR = os.path.join(
+    os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
+    else os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    "backups"
+)
+
+
+async def create_backup(created_by: str = "system") -> Dict[str, Any]:
+    """Create a full MongoDB backup as a zip archive.
+    
+    Requires mongodump to be installed on the system.
+    Only allowed if the license plan has backup_enabled=True.
+    """
+    license_doc = await get_license()
+    if not license_doc:
+        raise ValueError("No license found")
+    if not license_doc.get("backup_enabled"):
+        raise ValueError("Backup is not enabled on your plan. Upgrade to Offline Premium or Online.")
+
+    # Ensure backup directory exists
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    db_name = app_settings.DATABASE_NAME
+    dump_dir = os.path.join(BACKUP_DIR, f"dump_{timestamp}")
+    zip_path = os.path.join(BACKUP_DIR, f"backup_{db_name}_{timestamp}")
+
+    # Build mongodump command
+    mongo_url = app_settings.MONGODB_URL
+    cmd = ["mongodump", f"--uri={mongo_url}", f"--db={db_name}", f"--out={dump_dir}"]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            raise RuntimeError(f"mongodump failed: {result.stderr}")
+    except FileNotFoundError:
+        raise RuntimeError("mongodump not found. Install MongoDB Database Tools to enable backups.")
+
+    # Zip the dump
+    zip_file = shutil.make_archive(zip_path, "zip", dump_dir)
+
+    # Clean up raw dump directory
+    shutil.rmtree(dump_dir, ignore_errors=True)
+
+    file_size = os.path.getsize(zip_file)
+    logger.info(f"Backup created: {zip_file} ({file_size} bytes) by {created_by}")
+
+    return {
+        "filename": os.path.basename(zip_file),
+        "path": zip_file,
+        "size_bytes": file_size,
+        "created_at": datetime.utcnow().isoformat(),
+        "created_by": created_by,
+    }
+
+
+async def restore_backup(filename: str, restored_by: str = "system") -> Dict[str, Any]:
+    """Restore a MongoDB backup from a zip archive.
+    
+    Requires mongorestore to be installed on the system.
+    """
+    license_doc = await get_license()
+    if not license_doc:
+        raise ValueError("No license found")
+    if not license_doc.get("backup_enabled"):
+        raise ValueError("Backup/restore is not enabled on your plan.")
+
+    zip_path = os.path.join(BACKUP_DIR, filename)
+    if not os.path.exists(zip_path):
+        raise ValueError(f"Backup file not found: {filename}")
+
+    # Validate it's actually inside BACKUP_DIR (prevent path traversal)
+    real_backup_dir = os.path.realpath(BACKUP_DIR)
+    real_zip_path = os.path.realpath(zip_path)
+    if not real_zip_path.startswith(real_backup_dir):
+        raise ValueError("Invalid backup file path")
+
+    db_name = app_settings.DATABASE_NAME
+    mongo_url = app_settings.MONGODB_URL
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    extract_dir = os.path.join(BACKUP_DIR, f"restore_{timestamp}")
+
+    try:
+        # Extract zip
+        shutil.unpack_archive(zip_path, extract_dir)
+
+        # Find the database folder inside the extracted dump
+        dump_path = os.path.join(extract_dir, db_name)
+        if not os.path.isdir(dump_path):
+            # Try to find it one level deeper
+            for entry in os.listdir(extract_dir):
+                candidate = os.path.join(extract_dir, entry, db_name)
+                if os.path.isdir(candidate):
+                    dump_path = candidate
+                    break
+
+        if not os.path.isdir(dump_path):
+            raise ValueError("Could not find database dump inside the backup archive")
+
+        cmd = [
+            "mongorestore", f"--uri={mongo_url}", f"--db={db_name}",
+            "--drop", dump_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            raise RuntimeError(f"mongorestore failed: {result.stderr}")
+
+    except FileNotFoundError:
+        raise RuntimeError("mongorestore not found. Install MongoDB Database Tools to enable restore.")
+    finally:
+        shutil.rmtree(extract_dir, ignore_errors=True)
+
+    logger.info(f"Backup restored: {filename} by {restored_by}")
+    return {
+        "filename": filename,
+        "restored_at": datetime.utcnow().isoformat(),
+        "restored_by": restored_by,
+    }
+
+
+def list_backups() -> list:
+    """List all available backup zip files."""
+    if not os.path.exists(BACKUP_DIR):
+        return []
+
+    backups = []
+    for f in sorted(os.listdir(BACKUP_DIR), reverse=True):
+        if f.endswith(".zip") and f.startswith("backup_"):
+            filepath = os.path.join(BACKUP_DIR, f)
+            stat = os.stat(filepath)
+            backups.append({
+                "filename": f,
+                "size_bytes": stat.st_size,
+                "created_at": datetime.utcfromtimestamp(stat.st_mtime).isoformat(),
+            })
+    return backups

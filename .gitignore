@@ -63,3 +63,11 @@ htmlcov/
 
 # Documentation
 docs/_build/
+
+# Backups
+backups/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
