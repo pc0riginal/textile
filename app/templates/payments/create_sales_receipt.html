@@ -17,7 +17,7 @@
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Receipt Party Name *</label>
-                <select name="customer_id" x-model="customerId" @change="loadInvoices" required class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded">
+                <select name="customer_id" x-ref="partySelect" x-model="customerId" @change="loadInvoices(); $nextTick(() => $refs.dateInput.focus())" required autofocus class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded">
                     <option value="">Select Customer</option>
                     {% for customer in customers %}
                     <option value="{{ customer._id }}">{{ customer.name }}</option>
@@ -30,11 +30,11 @@
         <div class="grid grid-cols-3 md:grid-cols-6 gap-2">
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Date *</label>
-                <input type="date" name="payment_date" x-model="paymentDate" required class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
+                <input type="date" name="payment_date" x-ref="dateInput" x-model="paymentDate" required @keydown.enter.prevent="$refs.bankSelect.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Deposit Bank</label>
-                <select name="bank_name" id="salesBankSelect" @change="onBankChange" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
+                <select name="bank_name" x-ref="bankSelect" id="salesBankSelect" @change="onBankChange" @keydown.enter.prevent="$refs.partyBankSelect.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
                     <option value="">Select</option>
                     {% for bank in banks %}
                     <option value="{{ bank.bank_name }}" data-bank-id="{{ bank._id }}">{{ bank.bank_name }}</option>
@@ -43,7 +43,7 @@
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Party Bank</label>
-                <select name="party_bank" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
+                <select name="party_bank" x-ref="partyBankSelect" @keydown.enter.prevent="$refs.rtgsSelect.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
                     <option value="">Select</option>
                     <template x-for="bank in partyBanks" :key="bank">
                         <option :value="bank" x-text="bank"></option>
@@ -52,7 +52,7 @@
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">RTGS</label>
-                <select name="rr" x-model="rtgsType" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
+                <select name="rr" x-ref="rtgsSelect" x-model="rtgsType" @keydown.enter.prevent="(rtgsType === 'R' || rtgsType === 'T') ? $refs.amountInput.focus() : $refs.chequeInput.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
                     <option value="N">N</option>
                     <option value="R">R</option>
                     <option value="T">T</option>
@@ -60,11 +60,11 @@
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Ch. No.</label>
-                <input type="text" name="cheque_no" :disabled="rtgsType === 'R' || rtgsType === 'T'" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded" :class="(rtgsType === 'R' || rtgsType === 'T') ? 'bg-gray-100' : ''">
+                <input type="text" name="cheque_no" x-ref="chequeInput" :disabled="rtgsType === 'R' || rtgsType === 'T'" @keydown.enter.prevent="$refs.amountInput.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded" :class="(rtgsType === 'R' || rtgsType === 'T') ? 'bg-gray-100' : ''">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Amount</label>
-                <input type="number" step="0.01" x-model.number="chequeAmount" @input="calculateBalance" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
+                <input type="number" step="0.01" x-ref="amountInput" x-model.number="chequeAmount" @input="calculateBalance" @keydown.enter.prevent="if(invoices.length > 0) $refs.invoiceSection.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
             </div>
         </div>
 
@@ -101,16 +101,17 @@
         </div>
 
         <!-- Invoices Table -->
-        <div class="border border-gray-300 rounded overflow-hidden">
-            <div class="bg-gray-100 px-3 py-1.5 border-b border-gray-300">
+        <div class="border border-gray-300 rounded overflow-hidden" x-ref="invoiceSection" tabindex="0" @keydown="handleInvoiceKeydown($event)" @focus="if(invoices.length > 0 && focusedIndex < 0) focusedIndex = 0">
+            <div class="bg-gray-100 px-3 py-1.5 border-b border-gray-300 flex items-center justify-between">
                 <h3 class="text-xs font-semibold text-gray-700">Invoice Selection</h3>
+                <span class="text-xs text-gray-400" x-show="invoices.length > 0">↑↓ Navigate · Space Select · Tab to Amount</span>
             </div>
             <!-- Mobile Card View -->
-            <div class="md:hidden max-h-56 overflow-y-auto divide-y divide-gray-100">
+            <div class="md:hidden max-h-56 overflow-y-auto divide-y divide-gray-100" x-ref="invoiceListMobile">
                 <template x-for="(invoice, index) in invoices" :key="invoice.id">
-                    <div class="p-2.5" :class="invoice.selected ? 'bg-blue-50' : ''">
+                    <div class="p-2.5 cursor-pointer" :class="{'bg-blue-50': invoice.selected, 'ring-2 ring-inset ring-blue-400': focusedIndex === index}" @click="toggleInvoice(index)">
                         <div class="flex items-center gap-2 mb-1.5">
-                            <input type="checkbox" x-model="invoice.selected" @change="calculateBalance" :disabled="!invoice.selected && amountDisburse >= chequeAmount" class="rounded">
+                            <input type="checkbox" x-model="invoice.selected" @change="calculateBalance" @click.stop :disabled="!invoice.selected && chequeAmount > 0 && amountDisburse >= chequeAmount" class="rounded">
                             <span class="text-xs font-medium text-gray-900" x-text="invoice.invoice_no"></span>
                             <span class="text-xs text-gray-500 ml-auto" x-text="invoice.invoice_date"></span>
                         </div>
@@ -123,13 +124,13 @@
                             <span class="text-red-600 font-medium">Due: <span x-text="invoice.outstanding.toFixed(2)"></span></span>
                         </div>
                         <div class="pl-6 mt-1.5" x-show="invoice.selected">
-                            <input type="number" step="0.01" x-model.number="invoice.amount" @input="calculateBalance" class="w-full px-1.5 py-1 text-xs border border-gray-300 rounded text-right">
+                            <input type="number" step="0.01" x-model.number="invoice.amount" @input="calculateBalance" @click.stop class="w-full px-1.5 py-1 text-xs border border-gray-300 rounded text-right">
                         </div>
                     </div>
                 </template>
             </div>
             <!-- Desktop Table View -->
-            <div class="hidden md:block max-h-56 overflow-y-auto">
+            <div class="hidden md:block max-h-56 overflow-y-auto" x-ref="invoiceList">
                 <table class="w-full text-xs">
                     <thead class="bg-gray-50 sticky top-0">
                         <tr>
@@ -144,9 +145,9 @@
                     </thead>
                     <tbody>
                         <template x-for="(invoice, index) in invoices" :key="invoice.id">
-                            <tr class="border-b border-gray-100 hover:bg-blue-50">
+                            <tr class="border-b border-gray-100 cursor-pointer" :class="{'bg-blue-100': focusedIndex === index && invoice.selected, 'bg-blue-50': focusedIndex === index && !invoice.selected, 'bg-green-50': focusedIndex !== index && invoice.selected}" @click="toggleInvoice(index); focusedIndex = index; $refs.invoiceSection.focus()">
                                 <td class="px-2 py-1.5">
-                                    <input type="checkbox" x-model="invoice.selected" @change="calculateBalance" :disabled="!invoice.selected && amountDisburse >= chequeAmount" class="rounded">
+                                    <input type="checkbox" x-model="invoice.selected" @change="calculateBalance" @click.stop :disabled="!invoice.selected && chequeAmount > 0 && amountDisburse >= chequeAmount" class="rounded" tabindex="-1">
                                 </td>
                                 <td class="px-2 py-1.5 font-medium" x-text="invoice.invoice_no"></td>
                                 <td class="px-2 py-1.5 text-gray-600" x-text="invoice.invoice_date"></td>
@@ -154,7 +155,7 @@
                                 <td class="px-2 py-1.5 text-right text-green-600" x-text="invoice.total_paid.toFixed(2)"></td>
                                 <td class="px-2 py-1.5 text-right text-red-600 font-medium" x-text="invoice.outstanding.toFixed(2)"></td>
                                 <td class="px-2 py-1.5">
-                                    <input type="number" step="0.01" x-model.number="invoice.amount" @input="calculateBalance" :disabled="!invoice.selected" class="w-20 px-1.5 py-1 text-xs border border-gray-300 rounded text-right">
+                                    <input type="number" step="0.01" x-model.number="invoice.amount" @input="calculateBalance" @click.stop :disabled="!invoice.selected" class="w-20 px-1.5 py-1 text-xs border border-gray-300 rounded text-right" tabindex="-1" :x-ref="'amt' + index">
                                 </td>
                             </tr>
                         </template>
@@ -214,6 +215,7 @@ function receiptForm() {
         interest: 0,
         rtgsType: 'N',
         partyBanks: [],
+        focusedIndex: -1,
 
         get selectedInvoices() {
             return this.invoices
@@ -236,6 +238,85 @@ function receiptForm() {
                 }
             } catch (e) {}
         },
+
+        toggleInvoice(index) {
+            const inv = this.invoices[index];
+            if (!inv.selected && this.chequeAmount > 0 && this.amountDisburse >= this.chequeAmount) return;
+            inv.selected = !inv.selected;
+            this.calculateBalance();
+        },
+
+        handleInvoiceKeydown(e) {
+            if (this.invoices.length === 0) return;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.focusedIndex = Math.min(this.focusedIndex + 1, this.invoices.length - 1);
+                    this.scrollToFocused();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.focusedIndex = Math.max(this.focusedIndex - 1, 0);
+                    this.scrollToFocused();
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    if (this.focusedIndex >= 0) {
+                        this.toggleInvoice(this.focusedIndex);
+                        if (this.focusedIndex < this.invoices.length - 1) {
+                            this.focusedIndex++;
+                            this.scrollToFocused();
+                        }
+                    }
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.focusedIndex >= 0) {
+                        this.toggleInvoice(this.focusedIndex);
+                        if (this.focusedIndex < this.invoices.length - 1) {
+                            this.focusedIndex++;
+                            this.scrollToFocused();
+                        }
+                    }
+                    break;
+                case 'Tab':
+                    if (this.focusedIndex >= 0 && this.invoices[this.focusedIndex].selected) {
+                        e.preventDefault();
+                        const amtEl = this.$refs.invoiceList?.querySelectorAll('input[type="number"]')[this.focusedIndex];
+                        if (amtEl) { amtEl.disabled = false; amtEl.focus(); amtEl.select(); }
+                    }
+                    break;
+                case 'a':
+                case 'A':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        const allSelected = this.invoices.every(inv => inv.selected);
+                        this.invoices.forEach(inv => inv.selected = !allSelected);
+                        this.calculateBalance();
+                    }
+                    break;
+            }
+        },
+
+        scrollToFocused() {
+            this.$nextTick(() => {
+                const container = this.$refs.invoiceList || this.$refs.invoiceListMobile;
+                if (!container) return;
+                const rows = container.querySelectorAll('tbody tr, [class*="p-2.5"]');
+                const row = rows[this.focusedIndex];
+                if (!row) return;
+                const thead = container.querySelector('thead');
+                const headerHeight = thead ? thead.offsetHeight : 0;
+                const rowTop = row.offsetTop - container.scrollTop - headerHeight;
+                const rowBottom = row.offsetTop + row.offsetHeight - container.scrollTop;
+                const containerHeight = container.clientHeight;
+                if (rowTop < 0) {
+                    container.scrollTop = row.offsetTop - headerHeight;
+                } else if (rowBottom > containerHeight) {
+                    container.scrollTop = row.offsetTop + row.offsetHeight - containerHeight;
+                }
+            });
+        },
         
         async loadInvoices() {
             if (!this.customerId) {
@@ -251,6 +332,7 @@ function receiptForm() {
                     selected: false,
                     amount: 0
                 }));
+                this.focusedIndex = this.invoices.length > 0 ? 0 : -1;
                 this.calculateBalance();
             } catch (e) {
                 alert('Error loading invoices: ' + e.message);
@@ -258,29 +340,28 @@ function receiptForm() {
         },
 
         calculateBalance() {
-            // Calculate disbursement first
-            this.amountDisburse = this.invoices
-                .filter(inv => inv.selected)
-                .reduce((sum, inv) => sum + (parseFloat(inv.amount) || 0), 0);
-            
             // Auto-distribute cheque amount to selected invoices
             let remainingAmount = this.chequeAmount - this.kasar - this.interest;
             
             this.invoices.forEach(inv => {
-                if (inv.selected && remainingAmount > 0) {
-                    if (remainingAmount >= inv.outstanding) {
+                if (inv.selected) {
+                    if (this.chequeAmount > 0 && remainingAmount > 0) {
+                        if (remainingAmount >= inv.outstanding) {
+                            inv.amount = inv.outstanding;
+                            remainingAmount -= inv.outstanding;
+                        } else {
+                            inv.amount = remainingAmount;
+                            remainingAmount = 0;
+                        }
+                    } else if (this.chequeAmount <= 0) {
                         inv.amount = inv.outstanding;
-                        remainingAmount -= inv.outstanding;
-                    } else {
-                        inv.amount = remainingAmount;
-                        remainingAmount = 0;
                     }
-                } else if (!inv.selected) {
+                } else {
                     inv.amount = 0;
                 }
             });
             
-            // Recalculate disbursement after auto-distribution
+            // Calculate disbursement
             this.amountDisburse = this.invoices
                 .filter(inv => inv.selected)
                 .reduce((sum, inv) => sum + (parseFloat(inv.amount) || 0), 0);
@@ -288,7 +369,7 @@ function receiptForm() {
             // Calculate balance
             this.balanceAmount = this.chequeAmount - this.amountDisburse - this.kasar - this.interest;
             
-            // Calculate total outstanding (all invoices outstanding - amount disbursed)
+            // Calculate total outstanding
             const totalOutstanding = this.invoices.reduce((sum, inv) => sum + (inv.outstanding || 0), 0);
             this.outstanding = totalOutstanding - this.amountDisburse;
         },

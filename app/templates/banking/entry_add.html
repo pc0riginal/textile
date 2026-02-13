@@ -18,7 +18,7 @@
                 <!-- Bank Account -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Bank Account *</label>
-                    <select name="bank_id" id="bankSelect" required class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select name="bank_id" id="bankSelect" required autofocus class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">-- Select Bank --</option>
                         {% for bank in banks %}
                         <option value="{{ bank._id }}" {% if bank_id and bank._id|string == bank_id %}selected{% endif %}>
@@ -88,7 +88,7 @@
                 <!-- Cheque No (shown for offline, auto-filled) -->
                 <div id="chequeNoRow">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Cheque No</label>
-                    <input type="text" name="cheque_no" id="chequeNo" placeholder="Auto-assigned for cheque" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" readonly>
+                    <input type="text" name="cheque_no" id="chequeNo" placeholder="Enter cheque number" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <p class="text-xs text-gray-500 mt-1" id="chequeHint"></p>
                 </div>
 
@@ -148,14 +148,10 @@ async function updateChequeUI() {
         var nextNo = await fetchNextCheque(bankId);
         if (nextNo) {
             chequeNoEl.value = nextNo;
-            chequeNoEl.classList.add('bg-gray-50');
-            chequeNoEl.readOnly = true;
-            chequeHint.textContent = 'Auto-assigned. Set starting number in Bank Account settings.';
+            chequeHint.textContent = 'Auto-suggested. You can change it.';
             chequeBanner.classList.remove('hidden');
             chequeBannerNo.textContent = '#' + nextNo;
         } else {
-            chequeNoEl.classList.remove('bg-gray-50');
-            chequeNoEl.readOnly = false;
             chequeNoEl.placeholder = 'Enter cheque number';
             chequeHint.textContent = 'No cheque sequence found. Set starting number in Bank Account edit page, or enter manually.';
             chequeBanner.classList.add('hidden');
@@ -166,7 +162,6 @@ async function updateChequeUI() {
     } else if (isOffline && !bankId) {
         chequeNoRow.style.display = '';
         chequeNoEl.value = '';
-        chequeNoEl.readOnly = true;
         chequeHint.textContent = 'Select a bank account first.';
         chequeBanner.classList.add('hidden');
         submitBtn.textContent = 'Add Entry & Print Cheque';

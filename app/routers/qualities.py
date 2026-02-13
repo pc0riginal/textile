@@ -5,7 +5,7 @@ from datetime import datetime
 from bson import ObjectId
 
 from app import TEMPLATES_DIR
-from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
+from app.dependencies import get_current_user, get_current_company, get_template_context
 from app.database import get_collection
 
 router = APIRouter(prefix="/qualities")
@@ -16,9 +16,7 @@ async def list_qualities(
     context: dict = Depends(get_template_context)
 ):
     qualities_collection = await get_collection("qualities")
-    qualities = await qualities_collection.find(
-        get_company_filter(context["current_company"])
-    ).sort("name", 1).to_list(None)
+    qualities = await qualities_collection.find({}).sort("name", 1).to_list(None)
     
     context.update({
         "qualities": qualities,
@@ -58,11 +56,7 @@ async def create_quality(
 ):
     qualities_collection = await get_collection("qualities")
     
-    # Check for duplicate
-    existing = await qualities_collection.find_one({
-        **get_company_filter(current_company),
-        "name": name
-    })
+    existing = await qualities_collection.find_one({"name": name})
     
     if existing:
         return templates.TemplateResponse("qualities/create.html", {
@@ -78,7 +72,6 @@ async def create_quality(
         })
     
     quality_data = {
-        **get_company_filter(current_company),
         "name": name,
         "display_name": display_name or name,
         "quality_main_group": quality_main_group,
@@ -98,10 +91,7 @@ async def edit_quality_form(
     current_company: dict = Depends(get_current_company)
 ):
     qualities_collection = await get_collection("qualities")
-    quality = await qualities_collection.find_one({
-        "_id": ObjectId(quality_id),
-        **get_company_filter(current_company)
-    })
+    quality = await qualities_collection.find_one({"_id": ObjectId(quality_id)})
     
     if not quality:
         raise HTTPException(status_code=404, detail="Quality not found")
@@ -131,9 +121,7 @@ async def update_quality(
 ):
     qualities_collection = await get_collection("qualities")
     
-    # Check for duplicate (excluding current quality)
     existing = await qualities_collection.find_one({
-        **get_company_filter(current_company),
         "name": name,
         "_id": {"$ne": ObjectId(quality_id)}
     })
@@ -162,7 +150,7 @@ async def update_quality(
     }
     
     await qualities_collection.update_one(
-        {"_id": ObjectId(quality_id), **get_company_filter(current_company)},
+        {"_id": ObjectId(quality_id)},
         {"$set": update_data}
     )
     
@@ -175,10 +163,7 @@ async def delete_quality(
     current_company: dict = Depends(get_current_company)
 ):
     qualities_collection = await get_collection("qualities")
-    result = await qualities_collection.delete_one({
-        "_id": ObjectId(quality_id),
-        **get_company_filter(current_company)
-    })
+    result = await qualities_collection.delete_one({"_id": ObjectId(quality_id)})
     
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Quality not found")
@@ -190,9 +175,7 @@ async def get_qualities_api(
     current_company: dict = Depends(get_current_company)
 ):
     qualities_collection = await get_collection("qualities")
-    qualities = await qualities_collection.find(
-        get_company_filter(current_company)
-    ).sort("name", 1).to_list(None)
+    qualities = await qualities_collection.find({}).sort("name", 1).to_list(None)
     
     for q in qualities:
         q["_id"] = str(q["_id"])
@@ -213,16 +196,12 @@ async def quick_add_quality(
     data = await request.json()
     qualities_collection = await get_collection("qualities")
     
-    existing = await qualities_collection.find_one({
-        **get_company_filter(current_company),
-        "name": data["name"]
-    })
+    existing = await qualities_collection.find_one({"name": data["name"]})
     
     if existing:
         return JSONResponse(content={"id": str(existing["_id"]), "name": existing["name"]})
     
     quality_data = {
-        **get_company_filter(current_company),
         "name": data["name"],
         "display_name": data.get("display_name") or data["name"],
         "quality_main_group": data.get("quality_main_group"),

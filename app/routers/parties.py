@@ -6,7 +6,7 @@ from bson import ObjectId
 from typing import Optional
 
 from app import TEMPLATES_DIR
-from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
+from app.dependencies import get_current_user, get_current_company, get_template_context
 from app.database import get_collection
 from app.services.payment_service import escape_regex
 
@@ -25,7 +25,7 @@ async def list_parties(
     per_page = 25
     skip = (page - 1) * per_page
 
-    filter_query = get_company_filter(context["current_company"])
+    filter_query = {}
     if party_type:
         filter_query["party_type"] = party_type
 
@@ -65,18 +65,9 @@ async def create_party_form(
     type: Optional[str] = Query(None),
     redirect: Optional[str] = Query(None)
 ):
-    companies_collection = await get_collection("companies")
     parties_collection = await get_collection("parties")
     
-    user_companies = await companies_collection.find(
-        {"_id": {"$in": [ObjectId(cid) for cid in current_user.get("companies", [])]}}
-    ).to_list(None)
-    
-    all_fys = await companies_collection.distinct("financial_year")
-    financial_years = sorted(set(all_fys), reverse=True)
-    
     brokers = await parties_collection.find({
-        **get_company_filter(current_company),
         "party_type": "broker"
     }).sort("name", 1).to_list(None)
     
@@ -92,8 +83,6 @@ async def create_party_form(
         "request": request,
         "current_user": current_user,
         "current_company": current_company,
-        "user_companies": user_companies,
-        "financial_years": financial_years,
         "brokers": brokers,
         "indian_states": indian_states,
         "default_type": type,
@@ -134,13 +123,11 @@ async def create_party(
 ):
     parties_collection = await get_collection("parties")
     
-    # Generate party code if not provided
     if not party_code:
-        count = await parties_collection.count_documents(get_company_filter(current_company))
+        count = await parties_collection.count_documents({})
         party_code = f"P{count + 1:04d}"
     
     party_data = {
-        **get_company_filter(current_company),
         "name": name,
         "party_type": party_type,
         "party_code": party_code,
@@ -189,7 +176,6 @@ async def quick_add_party(
     parties_collection = await get_collection("parties")
     
     existing = await parties_collection.find_one({
-        **get_company_filter(current_company),
         "name": data["name"],
         "party_type": data.get("party_type", "customer")
     })
@@ -197,11 +183,10 @@ async def quick_add_party(
     if existing:
         return JSONResponse(content={"id": str(existing["_id"]), "name": existing["name"]})
     
-    count = await parties_collection.count_documents(get_company_filter(current_company))
+    count = await parties_collection.count_documents({})
     party_code = f"P{count + 1:04d}"
     
     party_data = {
-        **get_company_filter(current_company),
         "name": data["name"],
         "party_type": data.get("party_type", "customer"),
         "party_code": data.get("party_code") or party_code,
@@ -238,12 +223,10 @@ async def quick_add_full_party(
     data = await request.json()
     parties_collection = await get_collection("parties")
     
-    # Create supplier
-    count = await parties_collection.count_documents(get_company_filter(current_company))
+    count = await parties_collection.count_documents({})
     party_code = f"P{count + 1:04d}"
     
     party_data = {
-        **get_company_filter(current_company),
         "name": data["name"],
         "party_type": data["party_type"],
         "party_code": party_code,
@@ -274,10 +257,8 @@ async def quick_add_full_party(
         }
     }
     
-    # Create/link broker if provided
     if data.get("broker_name"):
         existing_broker = await parties_collection.find_one({
-            **get_company_filter(current_company),
             "party_type": "broker",
             "name": data["broker_name"]
         })
@@ -289,11 +270,10 @@ async def quick_add_full_party(
                 "name": data["broker_name"]
             }
         else:
-            broker_count = await parties_collection.count_documents(get_company_filter(current_company))
+            broker_count = await parties_collection.count_documents({})
             broker_code = f"P{broker_count + 1:04d}"
             
             broker_data = {
-                **get_company_filter(current_company),
                 "name": data["broker_name"],
                 "party_type": "broker",
                 "party_code": broker_code,
@@ -313,7 +293,6 @@ async def quick_add_full_party(
                 "name": data["broker_name"]
             }
         
-        # Link broker to supplier
         await parties_collection.update_one(
             {"_id": result.inserted_id},
             {"$set": {"broker_id": broker_id}}
@@ -327,7 +306,7 @@ async def get_parties_api(
     party_type: Optional[str] = Query(None)
 ):
     parties_collection = await get_collection("parties")
-    filter_query = get_company_filter(current_company)
+    filter_query = {}
     if party_type:
         filter_query["party_type"] = party_type
     
@@ -352,7 +331,6 @@ async def get_brokers(
 ):
     parties_collection = await get_collection("parties")
     brokers = await parties_collection.find({
-        **get_company_filter(current_company),
         "party_type": "broker"
     }).sort("name", 1).to_list(None)
     
@@ -379,7 +357,6 @@ async def search_parties(
     parties_collection = await get_collection("parties")
     
     parties = await parties_collection.find({
-        **get_company_filter(current_company),
         "$or": [
             {"name": {"$regex": safe_q, "$options": "i"}},
             {"party_code": {"$regex": safe_q, "$options": "i"}},
@@ -390,7 +367,8 @@ async def search_parties(
     for party in parties:
         party["id"] = str(party["_id"])
         del party["_id"]
-        party["company_id"] = str(party["company_id"])
+        if "company_id" in party:
+            party["company_id"] = str(party["company_id"])
     
     return JSONResponse(content=parties)
 
@@ -402,16 +380,12 @@ async def edit_party_form(
     current_company: dict = Depends(get_current_company)
 ):
     parties_collection = await get_collection("parties")
-    party = await parties_collection.find_one({
-        "_id": ObjectId(party_id),
-        **get_company_filter(current_company)
-    })
+    party = await parties_collection.find_one({"_id": ObjectId(party_id)})
     
     if not party:
         raise HTTPException(status_code=404, detail="Party not found")
     
     brokers = await parties_collection.find({
-        **get_company_filter(current_company),
         "party_type": "broker"
     }).sort("name", 1).to_list(None)
     
@@ -482,11 +456,11 @@ async def update_party(
     }
     
     result = await parties_collection.update_one(
-        {"_id": ObjectId(party_id), **get_company_filter(current_company)},
+        {"_id": ObjectId(party_id)},
         {"$set": update_data}
     )
     
-    if result.modified_count == 0:
+    if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Party not found")
     
     return RedirectResponse(url="/parties", status_code=302)
@@ -499,10 +473,7 @@ async def view_party(
     current_company: dict = Depends(get_current_company)
 ):
     parties_collection = await get_collection("parties")
-    party = await parties_collection.find_one({
-        "_id": ObjectId(party_id),
-        **get_company_filter(current_company)
-    })
+    party = await parties_collection.find_one({"_id": ObjectId(party_id)})
     
     if not party:
         raise HTTPException(status_code=404, detail="Party not found")
@@ -529,9 +500,7 @@ async def get_party_banks(
     current_company: dict = Depends(get_current_company)
 ):
     party_banks_collection = await get_collection("party_banks")
-    banks = await party_banks_collection.find(
-        get_company_filter(current_company)
-    ).sort("bank_name", 1).to_list(None)
+    banks = await party_banks_collection.find({}).sort("bank_name", 1).to_list(None)
     return JSONResponse(content=[b["bank_name"] for b in banks])
 
 @router.post("/api/add-party-bank")
@@ -543,13 +512,11 @@ async def add_party_bank(
     party_banks_collection = await get_collection("party_banks")
     
     existing = await party_banks_collection.find_one({
-        **get_company_filter(current_company),
         "bank_name": data["bank_name"]
     })
     
     if not existing:
         await party_banks_collection.insert_one({
-            **get_company_filter(current_company),
             "bank_name": data["bank_name"],
             "created_at": datetime.utcnow()
         })
@@ -562,17 +529,15 @@ async def get_party_api(
     current_company: dict = Depends(get_current_company)
 ):
     parties_collection = await get_collection("parties")
-    party = await parties_collection.find_one({
-        "_id": ObjectId(party_id),
-        **get_company_filter(current_company)
-    })
+    party = await parties_collection.find_one({"_id": ObjectId(party_id)})
     
     if not party:
         raise HTTPException(status_code=404, detail="Party not found")
     
     party["id"] = str(party["_id"])
     del party["_id"]
-    party["company_id"] = str(party["company_id"])
+    if "company_id" in party:
+        party["company_id"] = str(party["company_id"])
     if "broker_id" in party and party["broker_id"]:
         party["broker_id"] = str(party["broker_id"])
     if "created_at" in party:
@@ -589,10 +554,7 @@ async def delete_party(
     current_company: dict = Depends(get_current_company)
 ):
     parties_collection = await get_collection("parties")
-    result = await parties_collection.delete_one({
-        "_id": ObjectId(party_id),
-        **get_company_filter(current_company)
-    })
+    result = await parties_collection.delete_one({"_id": ObjectId(party_id)})
     
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Party not found")

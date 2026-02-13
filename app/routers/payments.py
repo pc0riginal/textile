@@ -198,7 +198,6 @@ async def create_sales_receipt_form(
     
     # Get customers
     customers = await parties_collection.find({
-        "company_id": ObjectId(current_company["_id"]),
         "party_type": {"$in": ["customer", "both"]}
     }).sort("name", 1).to_list(None)
     
@@ -232,7 +231,6 @@ async def create_receipt_form(
     
     # Get suppliers
     suppliers = await parties_collection.find({
-        "company_id": ObjectId(current_company["_id"]),
         "party_type": {"$in": ["supplier", "both"]}
     }).sort("name", 1).to_list(None)
     

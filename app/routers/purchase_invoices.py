@@ -1,9 +1,12 @@
+import json
+
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse
 from datetime import datetime
 from bson import ObjectId
 from typing import List
+from pymongo.errors import DuplicateKeyError
 
 from app import TEMPLATES_DIR
 from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
@@ -66,7 +69,6 @@ async def create_challan_form(
     base_filter = get_company_filter(current_company)
     
     suppliers = await parties_collection.find({
-        **base_filter,
         "party_type": {"$in": ["supplier", "both"]}
     }).sort("name", 1).to_list(None)
     
@@ -128,28 +130,55 @@ async def create_challan(
     
     # Check for duplicate invoice number
     invoice_no = form_data.get("invoice_no")
+    base_filter = get_company_filter(current_company)
     existing_invoice = await challans_collection.find_one({
-        **get_company_filter(current_company),
+        **base_filter,
         "invoice_no": invoice_no
     })
     if existing_invoice:
-        raise HTTPException(status_code=400, detail=f"Invoice number {invoice_no} already exists")
+        # Re-render form with error
+        suppliers = await parties_collection.find({
+            "party_type": {"$in": ["supplier", "both"]}
+        }).sort("name", 1).to_list(None)
+        suppliers_list = []
+        for s in suppliers:
+            broker_info = None
+            if s.get("broker_id"):
+                broker = await parties_collection.find_one({"_id": s["broker_id"]})
+                if broker:
+                    broker_info = {"id": str(broker["_id"]), "name": broker["name"]}
+            suppliers_list.append({
+                "id": str(s["_id"]),
+                "name": s["name"],
+                "party_code": s.get("party_code", ""),
+                "broker": broker_info
+            })
+        return templates.TemplateResponse("purchase_invoices/create.html", {
+            "request": request,
+            "current_user": current_user,
+            "current_company": current_company,
+            "suppliers": suppliers_list,
+            "next_invoice_no": invoice_no,
+            "error": f"Invoice number {invoice_no} already exists",
+            "breadcrumbs": [
+                {"name": "Dashboard", "url": "/dashboard"},
+                {"name": "Purchase Invoices", "url": "/purchase-invoices"},
+                {"name": "Create", "url": "/purchase-invoices/create"}
+            ]
+        })
     
-    count = await challans_collection.count_documents(get_company_filter(current_company))
+    count = await challans_collection.count_documents(base_filter)
     challan_no = f"{current_company.get('challan_series', 'CH')}{count + 1:04d}"
     
     items = []
-    i = 0
-    while f"items[{i}][quality]" in form_data:
-        items.append({
-            "quality": form_data.get(f"items[{i}][quality]"),
-            "hsn": form_data.get(f"items[{i}][hsn]"),
-            "quantity": float(form_data.get(f"items[{i}][quantity]", 0)),
-            "unit": form_data.get(f"items[{i}][unit]"),
-            "rate": float(form_data.get(f"items[{i}][rate]", 0)),
-            "amount": float(form_data.get(f"items[{i}][amount]", 0))
-        })
-        i += 1
+    items_json = form_data.get("items", "[]")
+    try:
+        items = json.loads(items_json) if isinstance(items_json, str) else items_json
+    except (json.JSONDecodeError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid items data")
+    
+    if not items:
+        raise HTTPException(status_code=400, detail="Items are required")
     
     subtotal = float(form_data.get("subtotal", 0))
     cgst = float(form_data.get("cgst", 0))
@@ -164,7 +193,7 @@ async def create_challan(
         raise HTTPException(status_code=400, detail="Invalid date format")
     
     challan_data = {
-        **get_company_filter(current_company),
+        **base_filter,
         "company_name": form_data.get("company_name"),
         "invoice_no": form_data.get("invoice_no"),
         "challan_no": form_data.get("challan_no", challan_no),
@@ -198,9 +227,7 @@ async def get_qualities(
     current_company: dict = Depends(get_current_company)
 ):
     qualities_collection = await get_collection("qualities")
-    qualities = await qualities_collection.find(
-        get_company_filter(current_company)
-    ).to_list(None)
+    qualities = await qualities_collection.find({}).to_list(None)
     return JSONResponse(content=[q["name"] for q in qualities] if qualities else [])
 
 @router.post("/qualities")
@@ -213,7 +240,6 @@ async def add_quality(
     qualities_collection = await get_collection("qualities")
     
     existing = await qualities_collection.find_one({
-        **get_company_filter(current_company),
         "name": data["name"]
     })
     
@@ -221,7 +247,6 @@ async def add_quality(
         return JSONResponse(content={"id": str(existing["_id"]), "name": data["name"]})
     
     quality_data = {
-        **get_company_filter(current_company),
         "name": data["name"],
         "created_at": datetime.utcnow()
     }

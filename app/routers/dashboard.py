@@ -52,12 +52,12 @@ async def dashboard(
     
     # Outstanding amounts
     total_receivables = await parties_collection.aggregate([
-        {"$match": {**base_filter, "current_balance": {"$gt": 0}}},
+        {"$match": {"current_balance": {"$gt": 0}}},
         {"$group": {"_id": None, "total": {"$sum": "$current_balance"}}}
     ]).to_list(1)
     
     total_payables = await parties_collection.aggregate([
-        {"$match": {**base_filter, "current_balance": {"$lt": 0}}},
+        {"$match": {"current_balance": {"$lt": 0}}},
         {"$group": {"_id": None, "total": {"$sum": {"$abs": "$current_balance"}}}}
     ]).to_list(1)
     

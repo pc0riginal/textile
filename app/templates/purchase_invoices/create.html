@@ -1,264 +1,256 @@
 {% extends "base.html" %}
 
-{% block title %}Create Purchase Invoice - Textile ERP{% endblock %}
+{% block title %}Purchase Invoice - Textile ERP{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto space-y-4 px-4 md:px-0" x-data="challanForm()">
-    <div>
-        <h1 class="text-xl md:text-2xl font-bold text-gray-900">Create Purchase Invoice</h1>
-        <p class="text-sm md:text-base text-gray-600">Record new material purchase</p>
+<div class="max-w-7xl mx-auto space-y-3 px-2 md:px-4" x-data="challanForm()">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+        <div>
+            <h1 class="text-lg md:text-xl font-bold text-gray-900">Purchase Invoice</h1>
+            <p class="text-xs text-gray-600">Record new material purchase</p>
+        </div>
+        <div class="flex flex-wrap gap-1.5 md:gap-2">
+            <a href="/purchase-invoices" class="px-2 md:px-3 py-1.5 text-xs bg-gray-100 rounded hover:bg-gray-200">Exit</a>
+        </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
-        <form method="POST" action="/purchase-invoices/create" class="space-y-4 md:space-y-6" @submit="prepareSubmit">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form method="POST" action="/purchase-invoices/create" class="bg-white rounded-lg shadow-sm border p-3 md:p-4 space-y-3 md:space-y-4" @submit="prepareSubmit">
+        {% if error %}
+        <div class="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
+            <span>⚠️</span> <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <!-- TOP SECTION: Basic Details -->
+        <div>
+            <h3 class="font-semibold text-gray-900 border-b pb-2 text-sm mb-2">Purchase Invoice Details</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-3">
                 <div>
-                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-2">Company Name *</label>
-                    <input type="text" name="company_name" value="{{ current_company.get('name', '') }}" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Company</label>
+                    <input type="text" name="company_name" value="{{ current_company.get('name', '') }}" readonly class="w-full px-2 py-1.5 text-xs border rounded bg-gray-50">
                 </div>
                 <div>
-                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-2">Invoice Number *</label>
-                    <input type="text" name="invoice_no" x-model="invoiceNo" @input="challanNo = invoiceNo" value="{{ next_invoice_no }}" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Invoice No. *</label>
+                    <input type="text" name="invoice_no" x-model="invoiceNo" @input="challanNo = invoiceNo" required class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Challan No. *</label>
+                    <input type="text" name="challan_no" x-model="challanNo" required class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Date *</label>
+                    <input type="date" name="challan_date" required max="9999-12-31" :value="new Date().toISOString().split('T')[0]" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
                 </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-2">Challan Number *</label>
-                    <input type="text" name="challan_no" x-model="challanNo" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-2">Supplier *</label>
-                    <div class="relative" @click.outside="showSupplierDropdown = false">
-                        <input type="text" x-model="supplierSearch" @input="searchSuppliers" @focus="showSupplierDropdown = true" @keydown="handleSupplierKeydown($event)" placeholder="Search supplier..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" autocomplete="off">
-                        <input type="hidden" name="supplier_id" x-model="selectedSupplier.id">
-                        <div x-show="showSupplierDropdown && (filteredSuppliers.length > 0 || supplierSearch.length > 0)" x-cloak x-ref="supplierDropdown" class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                            <template x-for="(supplier, idx) in filteredSuppliers" :key="supplier.id">
-                                <div @click="selectSupplier(supplier)" :data-selected="idx === supplierSelectedIndex" :class="idx === supplierSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-3 py-2 cursor-pointer text-sm" x-text="supplier.name + ' (' + supplier.party_code + ')'"></div>
-                            </template>
-                            <div @click="openSupplierModal" :class="filteredSuppliers.length === supplierSelectedIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-3 py-2 cursor-pointer text-sm text-green-600 font-medium border-t">+ Add New Supplier</div>
+        </div>
+
+        <!-- SUPPLIER & BROKER SECTION -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+            <div>
+                <h3 class="font-semibold text-gray-900 border-b pb-2 text-sm mb-2">Supplier</h3>
+                <div class="space-y-2">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Select Supplier *</label>
+                        <div class="relative" @click.outside="showSupplierDropdown = false">
+                            <input type="text" x-ref="supplierInput" x-model="supplierSearch" @input="searchSuppliers" @focus="showSupplierDropdown = true" @keydown="handleSupplierKeydown($event)" placeholder="Search supplier..." autocomplete="off" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+                            <input type="hidden" name="supplier_id" x-model="selectedSupplier.id">
+                            <div x-show="showSupplierDropdown && (filteredSuppliers.length > 0 || supplierSearch.length > 0)" x-cloak x-ref="supplierDropdown" class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-60 overflow-auto">
+                                <template x-for="(supplier, idx) in filteredSuppliers" :key="supplier.id">
+                                    <div @click="selectSupplier(supplier)" :data-selected="idx === supplierSelectedIndex" :class="idx === supplierSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-xs" x-text="supplier.name + ' (' + supplier.party_code + ')'"></div>
+                                </template>
+                                <div @click="openSupplierModal" :class="filteredSuppliers.length === supplierSelectedIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-xs text-green-600 font-medium border-t">+ Add New Supplier</div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                
-                <div>
-                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-2">Invoice Date *</label>
-                    <input type="date" name="challan_date" required max="9999-12-31" :value="new Date().toISOString().split('T')[0]" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
-                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-2">Broker</label>
-                    <input type="text" x-model="brokerName" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md" placeholder="Enter broker name (optional)">
-                    <input type="hidden" name="broker_id" x-model="brokerId">
-                    <input type="hidden" name="broker_name" x-model="brokerName">
-                </div>
             </div>
-
             <div>
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-base md:text-lg font-medium text-gray-900">Item Details</h3>
-                    <button type="button" @click="addItem" class="bg-green-600 text-white px-3 py-1.5 text-sm rounded-md hover:bg-green-700">+ Add</button>
+                <h3 class="font-semibold text-gray-900 border-b pb-2 text-sm mb-2">Broker</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Broker</label>
+                        <input type="text" x-model="brokerName" readonly class="w-full px-2 py-1.5 text-xs border rounded bg-gray-50">
+                        <input type="hidden" name="broker_id" x-model="brokerId">
+                        <input type="hidden" name="broker_name" x-model="brokerName">
+                    </div>
                 </div>
-                
-                <!-- Mobile Card View -->
-                <div class="md:hidden space-y-3 max-h-[60vh] overflow-y-auto">
-                    <template x-for="(item, index) in items" :key="index">
-                        <div class="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                            <div class="space-y-2">
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label class="text-xs text-gray-600">Quality</label>
-                                        <div class="relative">
-                                            <input type="text" x-model="item.qualitySearch" @input="filterQualities(index)" @focus="item.showQualityDropdown = true; filterQualities(index)" @blur="setTimeout(() => item.showQualityDropdown = false, 200)" @keydown="handleQualityKeydown($event, index)" placeholder="Search or add..." class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md">
-                                            <input type="hidden" :name="'items['+index+'][quality]'" x-model="item.quality">
-                                            <div x-show="item.showQualityDropdown && (item.filteredQualities.length > 0 || item.qualitySearch.length >= 0)" :x-ref="'qualityDropdown'+index" class="absolute z-[100] w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-auto">
-                                                <template x-for="(q, qIdx) in item.filteredQualities" :key="q">
-                                                    <div @mousedown.prevent @click="selectQuality(index, q)" :data-selected="qIdx === item.selectedQualityIndex" :class="qIdx === item.selectedQualityIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-sm" x-text="q"></div>
-                                                </template>
-                                                <div @mousedown.prevent @click="addQualityFromDropdown(index)" :class="item.filteredQualities.length === item.selectedQualityIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-sm text-green-600 font-medium border-t">+ Add New</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="text-xs text-gray-600">HSN</label>
-                                        <div class="relative">
-                                            <input type="text" x-model="item.hsnSearch" @input="filterHSN(index)" @focus="item.showHSNDropdown = true; filterHSN(index)" @blur="setTimeout(() => item.showHSNDropdown = false, 200)" @keydown="handleHSNKeydown($event, index)" placeholder="Search or add..." class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md">
-                                            <input type="hidden" :name="'items['+index+'][hsn]'" x-model="item.hsn">
-                                            <div x-show="item.showHSNDropdown && (item.filteredHSN.length > 0 || item.hsnSearch.length >= 0)" :x-ref="'hsnDropdown'+index" class="absolute z-[100] w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-auto">
-                                                <template x-for="(h, hIdx) in item.filteredHSN" :key="h">
-                                                    <div @mousedown.prevent @click="selectHSN(index, h)" :data-selected="hIdx === item.selectedHSNIndex" :class="hIdx === item.selectedHSNIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-sm" x-text="h"></div>
-                                                </template>
-                                                <div @mousedown.prevent @click="addHSNFromDropdown(index)" :class="item.filteredHSN.length === item.selectedHSNIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-sm text-green-600 font-medium border-t">+ Add New</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2">
-                                    <div>
-                                        <label class="text-xs text-gray-600">Qty</label>
-                                        <input type="number" step="0.01" x-model="item.quantity" @input="calculateAmount(index)" :name="'items['+index+'][quantity]'" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md" placeholder="0">
-                                    </div>
-                                    <div>
-                                        <label class="text-xs text-gray-600">Unit</label>
-                                        <select x-model="item.unit" :name="'items['+index+'][unit]'" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md">
-                                            <option value="KG">KG</option>
-                                            <option value="MTR">MTR</option>
-                                            <option value="PCS">PCS</option>
-                                            <option value="BOX">BOX</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="text-xs text-gray-600">Rate</label>
-                                        <input type="number" step="0.01" x-model="item.rate" @input="calculateAmount(index)" @keydown.enter.prevent="addItem()" :name="'items['+index+'][rate]'" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md" placeholder="0">
-                                    </div>
-                                </div>
-                                <div class="flex items-center justify-between pt-2 border-t">
-                                    <div>
-                                        <span class="text-xs text-gray-600">Amount: </span>
-                                        <span class="text-sm font-medium" x-text="'₹' + (item.amount || 0).toFixed(2)"></span>
-                                        <input type="hidden" :name="'items['+index+'][amount]'" x-model="item.amount">
-                                    </div>
-                                    <button type="button" @click="removeItem(index)" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-                
-                <!-- Desktop Table View -->
-                <div class="hidden md:block overflow-x-auto">
-                    <table class="min-w-full border border-gray-300 text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-700 border-b">Quality</th>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-700 border-b">HSN</th>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-700 border-b">Qty</th>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-700 border-b">Unit</th>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-700 border-b">Rate</th>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-700 border-b">Amount</th>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-700 border-b w-16">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="(item, index) in items" :key="index">
-                                <tr>
-                                    <td class="px-2 py-2 border-b">
-                                        <div class="relative" @click.outside="item.showQualityDropdown = false">
-                                            <input type="text" x-model="item.qualitySearch" @input="filterQualities(index)" @focus="item.showQualityDropdown = true; filterQualities(index)" @keydown="handleQualityKeydown($event, index)" placeholder="Search..." class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md">
-                                            <input type="hidden" :name="'items['+index+'][quality]'" x-model="item.quality">
-                                            <div x-show="item.showQualityDropdown && (item.filteredQualities.length > 0 || item.qualitySearch.length >= 0)" :x-ref="'qualityDropdown'+index" class="fixed z-[9999] bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-auto" :style="'width: ' + $event.target.offsetWidth + 'px; top: ' + ($event.target.getBoundingClientRect().bottom + 4) + 'px; left: ' + $event.target.getBoundingClientRect().left + 'px'" @focusin.window="if (item.showQualityDropdown) { $el.style.top = $event.target.getBoundingClientRect().bottom + 4 + 'px'; $el.style.left = $event.target.getBoundingClientRect().left + 'px'; $el.style.width = $event.target.offsetWidth + 'px' }">
-                                                <template x-for="(q, qIdx) in item.filteredQualities" :key="q">
-                                                    <div @click="selectQuality(index, q)" :data-selected="qIdx === item.selectedQualityIndex" :class="qIdx === item.selectedQualityIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-sm" x-text="q"></div>
-                                                </template>
-                                                <div @click="addQualityFromDropdown(index)" :class="item.filteredQualities.length === item.selectedQualityIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-sm text-green-600 font-medium border-t">+ Add New</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2 border-b">
-                                        <div class="relative" @click.outside="item.showHSNDropdown = false">
-                                            <input type="text" x-model="item.hsnSearch" @input="filterHSN(index)" @focus="item.showHSNDropdown = true; filterHSN(index)" @keydown="handleHSNKeydown($event, index)" placeholder="Search..." class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md">
-                                            <input type="hidden" :name="'items['+index+'][hsn]'" x-model="item.hsn">
-                                            <div x-show="item.showHSNDropdown && (item.filteredHSN.length > 0 || item.hsnSearch.length >= 0)" :x-ref="'hsnDropdown'+index" class="fixed z-[9999] bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-auto" :style="'width: ' + $event.target.offsetWidth + 'px; top: ' + ($event.target.getBoundingClientRect().bottom + 4) + 'px; left: ' + $event.target.getBoundingClientRect().left + 'px'" @focusin.window="if (item.showHSNDropdown) { $el.style.top = $event.target.getBoundingClientRect().bottom + 4 + 'px'; $el.style.left = $event.target.getBoundingClientRect().left + 'px'; $el.style.width = $event.target.offsetWidth + 'px' }">
-                                                <template x-for="(h, hIdx) in item.filteredHSN" :key="h">
-                                                    <div @click="selectHSN(index, h)" :data-selected="hIdx === item.selectedHSNIndex" :class="hIdx === item.selectedHSNIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-sm" x-text="h"></div>
-                                                </template>
-                                                <div @click="addHSNFromDropdown(index)" :class="item.filteredHSN.length === item.selectedHSNIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-sm text-green-600 font-medium border-t">+ Add New</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-2 py-2 border-b">
-                                        <input type="number" step="0.01" x-model="item.quantity" @input="calculateAmount(index)" :name="'items['+index+'][quantity]'" class="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded-md" placeholder="0">
-                                    </td>
-                                    <td class="px-2 py-2 border-b">
-                                        <select x-model="item.unit" :name="'items['+index+'][unit]'" class="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded-md">
-                                            <option value="KG">KG</option>
-                                            <option value="MTR">MTR</option>
-                                            <option value="PCS">PCS</option>
-                                            <option value="BOX">BOX</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-2 py-2 border-b">
-                                        <input type="number" step="0.01" x-model="item.rate" @input="calculateAmount(index)" @keydown.enter.prevent="addItem()" :name="'items['+index+'][rate]'" class="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded-md" placeholder="0">
-                                    </td>
-                                    <td class="px-2 py-2 border-b">
-                                        <input type="number" step="0.01" x-model="item.amount" :name="'items['+index+'][amount]'" readonly class="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50">
-                                    </td>
-                                    <td class="px-2 py-2 border-b">
-                                        <button type="button" @click="removeItem(index)" class="text-red-600 hover:text-red-800">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                        </button>
-                                    </td>
-                                </tr>
+            </div>
+        </div>
+
+        <!-- ADD ITEM SECTION -->
+        <div class="bg-green-50 border-2 border-green-200 rounded-lg p-2 md:p-3">
+            <h3 class="font-semibold text-gray-900 mb-2 text-sm">➕ Add Item</h3>
+            <div class="grid grid-cols-2 md:grid-cols-7 gap-2">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Quality *</label>
+                    <div class="relative">
+                        <input type="text" x-ref="qualityInput" x-model="qualitySearch" @input="filterQualities" @focus="showQualityDropdown = true; filterQualities()" @click="showQualityDropdown = true; filterQualities()" @blur="setTimeout(() => showQualityDropdown = false, 200)" @keydown="handleQualityKeydown($event)" placeholder="Search..." class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                        <div x-show="showQualityDropdown && (filteredQualities.length > 0 || qualitySearch.length >= 0)" class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-40 overflow-auto">
+                            <template x-for="(q, idx) in filteredQualities" :key="q">
+                                <div @mousedown.prevent @click="selectQuality(q)" :class="idx === qualitySelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-xs" x-text="q"></div>
                             </template>
-                        </tbody>
-                    </table>
+                            <div @mousedown.prevent @click="addQualityFromDropdown()" :class="filteredQualities.length === qualitySelectedIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-xs text-green-600 font-medium border-t">+ Add New</div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">HSN</label>
+                    <div class="relative">
+                        <input type="text" x-ref="hsnInput" x-model="hsnSearch" @input="filterHSN" @focus="showHSNDropdown = true; filterHSN()" @click="showHSNDropdown = true; filterHSN()" @blur="setTimeout(() => showHSNDropdown = false, 200)" @keydown="handleHSNKeydown($event)" placeholder="Search..." class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                        <div x-show="showHSNDropdown && (filteredHSN.length > 0 || hsnSearch.length >= 0)" class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-40 overflow-auto">
+                            <template x-for="(h, idx) in filteredHSN" :key="h">
+                                <div @mousedown.prevent @click="selectHSN(h)" :class="idx === hsnSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-xs" x-text="h"></div>
+                            </template>
+                            <div @mousedown.prevent @click="addHSNFromDropdown()" :class="filteredHSN.length === hsnSelectedIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-xs text-green-600 font-medium border-t">+ Add New</div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Qty *</label>
+                    <input type="number" step="0.01" x-ref="qtyInput" x-model="currentItem.quantity" @keydown.enter.prevent="$refs.unitInput.focus()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Unit</label>
+                    <select x-ref="unitInput" x-model="currentItem.unit" @keydown.enter.prevent="$refs.rateInput.focus()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                        <option value="KG">KG</option>
+                        <option value="MTR">MTR</option>
+                        <option value="PCS">PCS</option>
+                        <option value="BOX">BOX</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Rate</label>
+                    <input type="number" step="0.01" x-ref="rateInput" x-model="currentItem.rate" @keydown.enter.prevent="addItem()" @keydown.tab="handleRateTab($event)" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
+                </div>
+                <div class="col-span-2 md:col-span-1 flex items-end">
+                    <button type="button" @click="addItem" class="w-full px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700">➕ Add</button>
                 </div>
             </div>
+        </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Brokerage</label>
-                    <input type="number" step="0.01" name="brokerage" x-model="brokerage" @input="calculateTotals" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Freight</label>
-                    <input type="number" step="0.01" name="freight" x-model="freight" @input="calculateTotals" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">GST %</label>
-                    <input type="number" step="0.01" x-model="gstRate" @input="calculateTotals" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                </div>
+        <!-- ITEMS TABLE -->
+        <div x-show="items.length > 0">
+            <h3 class="text-sm font-medium text-gray-900 mb-2">📋 Items (<span x-text="items.length"></span>)</h3>
+            <!-- Mobile Card View -->
+            <div class="md:hidden space-y-2">
+                <template x-for="(item, idx) in items" :key="idx">
+                    <div class="border rounded p-2 bg-white">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex-1">
+                                <div class="font-medium text-sm" x-text="item.quality"></div>
+                                <div class="text-xs text-gray-600">HSN: <span x-text="item.hsn || '-'"></span> | Qty: <span x-text="item.quantity"></span> <span x-text="item.unit"></span></div>
+                            </div>
+                            <button type="button" @click="removeItem(idx)" class="text-red-600 hover:text-red-800 text-xl ml-2">×</button>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-gray-600">Rate: <span class="font-medium" x-text="'₹' + item.rate.toFixed(2)"></span></span>
+                            <span class="font-bold text-sm" x-text="'₹' + item.amount.toFixed(2)"></span>
+                        </div>
+                    </div>
+                </template>
             </div>
+            <!-- Desktop Table View -->
+            <div class="hidden md:block overflow-x-auto border rounded">
+                <table class="w-full text-xs">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="border px-2 py-1">#</th>
+                            <th class="border px-2 py-1">Quality</th>
+                            <th class="border px-2 py-1">HSN</th>
+                            <th class="border px-2 py-1">Qty</th>
+                            <th class="border px-2 py-1">Unit</th>
+                            <th class="border px-2 py-1">Rate</th>
+                            <th class="border px-2 py-1">Amount</th>
+                            <th class="border px-2 py-1">Del</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, idx) in items" :key="idx">
+                            <tr class="hover:bg-gray-50">
+                                <td class="border px-2 py-1 text-center" x-text="idx + 1"></td>
+                                <td class="border px-2 py-1" x-text="item.quality"></td>
+                                <td class="border px-2 py-1" x-text="item.hsn || '-'"></td>
+                                <td class="border px-2 py-1 text-right" x-text="item.quantity"></td>
+                                <td class="border px-2 py-1 text-center" x-text="item.unit"></td>
+                                <td class="border px-2 py-1 text-right" x-text="'₹' + item.rate.toFixed(2)"></td>
+                                <td class="border px-2 py-1 text-right font-medium" x-text="'₹' + item.amount.toFixed(2)"></td>
+                                <td class="border px-2 py-1 text-center">
+                                    <button type="button" @click="removeItem(idx)" class="text-red-600 hover:text-red-800">×</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <div class="space-y-2 text-sm">
+        <!-- EXTRAS: Brokerage, Freight, GST -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Brokerage</label>
+                <input type="number" step="0.01" name="brokerage" x-model="brokerage" @input="calculateTotals" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Freight</label>
+                <input type="number" step="0.01" name="freight" x-model="freight" @input="calculateTotals" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">GST %</label>
+                <input type="number" step="0.01" x-model="gstRate" @input="calculateTotals" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-blue-500">
+            </div>
+        </div>
+
+        <!-- TOTALS SECTION -->
+        <div class="bg-gray-50 border rounded p-2 md:p-3">
+            <div class="flex justify-end">
+                <div class="w-full md:w-80 space-y-2 text-xs md:text-sm">
                     <div class="flex justify-between"><span>Subtotal:</span><span x-text="'₹' + subtotal.toFixed(2)"></span></div>
                     <div class="flex justify-between"><span x-text="'CGST (' + (gstRate/2) + '%):'"></span><span x-text="'₹' + cgst.toFixed(2)"></span></div>
                     <div class="flex justify-between"><span x-text="'SGST (' + (gstRate/2) + '%):'"></span><span x-text="'₹' + sgst.toFixed(2)"></span></div>
                     <div class="flex justify-between"><span>Round Off:</span><span x-text="'₹' + roundOff.toFixed(2)"></span></div>
-                    <div class="flex justify-between text-lg font-bold border-t pt-2"><span>Total:</span><span x-text="'₹' + total.toFixed(2)"></span></div>
+                    <div class="flex justify-between font-bold text-base border-t pt-2"><span>Total:</span><span x-text="'₹' + total.toFixed(0)"></span></div>
                 </div>
-                <input type="hidden" name="subtotal" x-model="subtotal">
-                <input type="hidden" name="cgst" x-model="cgst">
-                <input type="hidden" name="sgst" x-model="sgst">
-                <input type="hidden" name="total" x-model="total">
             </div>
+            <input type="hidden" name="subtotal" x-model="subtotal">
+            <input type="hidden" name="cgst" x-model="cgst">
+            <input type="hidden" name="sgst" x-model="sgst">
+            <input type="hidden" name="total" x-model="total">
+        </div>
 
-            <div class="flex justify-end space-x-4 pt-6 border-t">
-                <a href="/purchase-invoices" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</a>
-                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Create Invoice</button>
-            </div>
-        </form>
-    </div>
+        <!-- Action Buttons -->
+        <div class="flex justify-end gap-2 pt-3 md:pt-4 border-t">
+            <a href="/purchase-invoices" class="px-3 py-1.5 text-xs bg-gray-100 rounded hover:bg-gray-200">Cancel</a>
+            <button type="submit" x-ref="saveBtn" class="w-full md:w-auto px-6 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save Invoice</button>
+        </div>
+    </form>
 
     <!-- Supplier Modal -->
     <div x-show="showSupplierModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;">
-        <div class="bg-white rounded-lg p-4 md:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" @click.away="showSupplierModal = false">
-            <h3 class="text-lg font-bold mb-4">Add New Supplier</h3>
-            <div class="space-y-3">
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm font-medium mb-1">Name *</label><input type="text" x-model="newSupplier.name" class="w-full px-3 py-2 border rounded-md"></div>
-                    <div><label class="block text-sm font-medium mb-1">Phone *</label><input type="tel" x-model="newSupplier.phone" class="w-full px-3 py-2 border rounded-md"></div>
+        <div class="bg-white rounded-lg p-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto" @click.away="showSupplierModal = false">
+            <h3 class="text-base font-bold mb-3">Add New Supplier</h3>
+            <div class="space-y-2">
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-xs font-medium mb-0.5">Name *</label><input type="text" x-model="newSupplier.name" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                    <div><label class="block text-xs font-medium mb-0.5">Phone *</label><input type="tel" x-model="newSupplier.phone" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm font-medium mb-1">GSTIN</label><input type="text" x-model="newSupplier.gstin" class="w-full px-3 py-2 border rounded-md"></div>
-                    <div><label class="block text-sm font-medium mb-1">PAN</label><input type="text" x-model="newSupplier.pan" class="w-full px-3 py-2 border rounded-md"></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-xs font-medium mb-0.5">GSTIN</label><input type="text" x-model="newSupplier.gstin" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                    <div><label class="block text-xs font-medium mb-0.5">PAN</label><input type="text" x-model="newSupplier.pan" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
                 </div>
-                <div><label class="block text-sm font-medium mb-1">Address *</label><input type="text" x-model="newSupplier.address" class="w-full px-3 py-2 border rounded-md"></div>
-                <div class="grid grid-cols-3 gap-4">
-                    <div><label class="block text-sm font-medium mb-1">City *</label><input type="text" x-model="newSupplier.city" class="w-full px-3 py-2 border rounded-md"></div>
-                    <div><label class="block text-sm font-medium mb-1">State *</label><input type="text" x-model="newSupplier.state" class="w-full px-3 py-2 border rounded-md"></div>
-                    <div><label class="block text-sm font-medium mb-1">Pincode *</label><input type="text" x-model="newSupplier.pincode" class="w-full px-3 py-2 border rounded-md"></div>
+                <div><label class="block text-xs font-medium mb-0.5">Address *</label><input type="text" x-model="newSupplier.address" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div><label class="block text-xs font-medium mb-0.5">City *</label><input type="text" x-model="newSupplier.city" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                    <div><label class="block text-xs font-medium mb-0.5">State *</label><input type="text" x-model="newSupplier.state" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                    <div><label class="block text-xs font-medium mb-0.5">Pincode *</label><input type="text" x-model="newSupplier.pincode" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
                 </div>
-                <div class="border-t pt-3"><label class="block text-sm font-medium mb-1">Broker Name</label><input type="text" x-model="newSupplier.broker_name" class="w-full px-3 py-2 border rounded-md" placeholder="Optional"></div>
+                <div class="border-t pt-2"><label class="block text-xs font-medium mb-0.5">Broker Name</label><input type="text" x-model="newSupplier.broker_name" class="w-full px-2 py-1.5 text-xs border rounded-md" placeholder="Optional"></div>
             </div>
-            <div class="flex gap-3 justify-end mt-6 pt-4 border-t">
-                <button type="button" @click="showSupplierModal = false" class="px-4 py-2 bg-gray-100 rounded-md">Cancel</button>
-                <button type="button" @click="saveSupplier" class="px-4 py-2 bg-blue-600 text-white rounded-md">Save</button>
+            <div class="flex gap-2 justify-end mt-3 pt-3 border-t">
+                <button type="button" @click="showSupplierModal = false" class="px-3 py-1.5 text-xs bg-gray-100 rounded-md">Cancel</button>
+                <button type="button" @click="saveSupplier" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md">Save</button>
             </div>
         </div>
     </div>
-
-
 </div>
 
 <script>
@@ -274,7 +266,18 @@ function challanForm() {
         challanNo: '{{ next_invoice_no }}',
         brokerName: '',
         brokerId: '',
-        items: [{quality: '', hsn: '', quantity: 0, unit: 'KG', rate: 0, amount: 0, qualitySearch: '', hsnSearch: '', filteredQualities: [], filteredHSN: [], showQualityDropdown: false, showHSNDropdown: false, selectedQualityIndex: 0, selectedHSNIndex: 0}],
+        // Current item being entered
+        currentItem: {quality: '', hsn: '', quantity: 0, unit: 'KG', rate: 0},
+        qualitySearch: '',
+        hsnSearch: '',
+        filteredQualities: [],
+        filteredHSN: [],
+        showQualityDropdown: false,
+        showHSNDropdown: false,
+        qualitySelectedIndex: 0,
+        hsnSelectedIndex: 0,
+        // Added items list
+        items: [],
         brokerage: 0,
         freight: 0,
         gstRate: 5,
@@ -284,21 +287,16 @@ function challanForm() {
         roundOff: 0,
         total: 0,
         showSupplierModal: false,
-        showQualityModal: false,
-        showHSNModal: false,
-        newQuality: '',
-        newHSN: '',
         newSupplier: {name: '', phone: '', gstin: '', pan: '', address: '', city: '', state: '', pincode: '', broker_name: ''},
         qualities: [],
         hsnCodes: [],
-        
+
         init() {
             this.filteredSuppliers = this.suppliers;
-            this.invoiceNo = '{{ next_invoice_no }}';
-            this.challanNo = '{{ next_invoice_no }}';
             this.loadMasterData();
+            this.$nextTick(() => this.$refs.supplierInput.focus());
         },
-        
+
         async loadMasterData() {
             try {
                 const [qRes, hRes] = await Promise.all([
@@ -309,334 +307,208 @@ function challanForm() {
                 if (hRes.ok) this.hsnCodes = await hRes.json();
             } catch (e) {}
         },
-        
+
         searchSuppliers() {
             const search = this.supplierSearch.toLowerCase();
-            this.filteredSuppliers = this.suppliers.filter(s => 
+            this.filteredSuppliers = this.suppliers.filter(s =>
                 s.name.toLowerCase().includes(search) || s.party_code.toLowerCase().includes(search)
             );
             this.supplierSelectedIndex = 0;
             this.showSupplierDropdown = true;
         },
-        
+
         handleSupplierKeydown(e) {
             if (!this.showSupplierDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
-                this.showSupplierDropdown = true;
-                this.searchSuppliers();
-                e.preventDefault();
-                return;
+                this.showSupplierDropdown = true; this.searchSuppliers(); e.preventDefault(); return;
             }
             if (!this.showSupplierDropdown) return;
-            
             const maxIndex = this.filteredSuppliers.length;
             switch(e.key) {
-                case 'ArrowDown':
-                    e.preventDefault();
-                    this.supplierSelectedIndex = Math.min(this.supplierSelectedIndex + 1, maxIndex);
-                    this.scrollToSelected(this.$refs.supplierDropdown);
-                    break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    this.supplierSelectedIndex = Math.max(this.supplierSelectedIndex - 1, 0);
-                    this.scrollToSelected(this.$refs.supplierDropdown);
-                    break;
+                case 'ArrowDown': e.preventDefault(); this.supplierSelectedIndex = Math.min(this.supplierSelectedIndex + 1, maxIndex); this.scrollToSelected(this.$refs.supplierDropdown); break;
+                case 'ArrowUp': e.preventDefault(); this.supplierSelectedIndex = Math.max(this.supplierSelectedIndex - 1, 0); this.scrollToSelected(this.$refs.supplierDropdown); break;
                 case 'Enter':
                     e.preventDefault();
-                    if (this.supplierSelectedIndex < this.filteredSuppliers.length) {
-                        this.selectSupplier(this.filteredSuppliers[this.supplierSelectedIndex]);
-                    } else if (this.supplierSelectedIndex === this.filteredSuppliers.length) {
-                        this.openSupplierModal();
-                    }
+                    if (this.supplierSelectedIndex < this.filteredSuppliers.length) this.selectSupplier(this.filteredSuppliers[this.supplierSelectedIndex]);
+                    else this.openSupplierModal();
                     break;
-                case 'Escape':
-                    e.preventDefault();
-                    this.showSupplierDropdown = false;
-                    break;
+                case 'Escape': e.preventDefault(); this.showSupplierDropdown = false; break;
             }
         },
-        
+
         selectSupplier(supplier) {
             this.selectedSupplier = supplier;
             this.supplierSearch = supplier.name + ' (' + supplier.party_code + ')';
-            
-            if (supplier.broker) {
-                this.brokerName = supplier.broker.name;
-                this.brokerId = supplier.broker.id;
-            } else {
-                this.brokerName = '';
-                this.brokerId = '';
-            }
-            
-            setTimeout(() => {
-                this.showSupplierDropdown = false;
-            }, 100);
+            if (supplier.broker) { this.brokerName = supplier.broker.name; this.brokerId = supplier.broker.id; }
+            else { this.brokerName = ''; this.brokerId = ''; }
+            setTimeout(() => { this.showSupplierDropdown = false; }, 100);
         },
-        
+
+        openSupplierModal() { this.showSupplierModal = true; this.showSupplierDropdown = false; },
+
+        async saveSupplier() {
+            if (!this.newSupplier.name || !this.newSupplier.phone || !this.newSupplier.address || !this.newSupplier.city || !this.newSupplier.state || !this.newSupplier.pincode) {
+                alert('Please fill all required fields'); return;
+            }
+            try {
+                const res = await fetch('/parties/quick-add-full', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: this.newSupplier.name, party_type: 'supplier', phone: this.newSupplier.phone, gstin: this.newSupplier.gstin, pan: this.newSupplier.pan, address_line1: this.newSupplier.address, city: this.newSupplier.city, state: this.newSupplier.state, pincode: this.newSupplier.pincode, broker_name: this.newSupplier.broker_name })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const supplier = {id: data.supplier.id, name: data.supplier.name, party_code: data.supplier.party_code, broker: data.broker ? {id: data.broker.id, name: data.broker.name} : null};
+                    this.suppliers.push(supplier); this.selectSupplier(supplier); this.showSupplierModal = false;
+                    this.newSupplier = {name: '', phone: '', gstin: '', pan: '', address: '', city: '', state: '', pincode: '', broker_name: ''};
+                } else { alert('Failed to add supplier'); }
+            } catch (e) { alert('Error: ' + e.message); }
+        },
+
+        // Quality dropdown (single currentItem)
+        filterQualities() {
+            const search = (this.qualitySearch || '').toLowerCase();
+            this.filteredQualities = search ? this.qualities.filter(q => q.toLowerCase().includes(search)) : [...this.qualities];
+            this.qualitySelectedIndex = 0;
+        },
+        handleQualityKeydown(e) {
+            if (!this.showQualityDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) { this.showQualityDropdown = true; this.filterQualities(); e.preventDefault(); return; }
+            if (!this.showQualityDropdown) return;
+            const maxIndex = this.filteredQualities.length;
+            switch(e.key) {
+                case 'ArrowDown': e.preventDefault(); this.qualitySelectedIndex = Math.min(this.qualitySelectedIndex + 1, maxIndex); break;
+                case 'ArrowUp': e.preventDefault(); this.qualitySelectedIndex = Math.max(this.qualitySelectedIndex - 1, 0); break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.qualitySelectedIndex < this.filteredQualities.length) this.selectQuality(this.filteredQualities[this.qualitySelectedIndex]);
+                    else this.addQualityFromDropdown();
+                    break;
+                case 'Escape': e.preventDefault(); this.showQualityDropdown = false; break;
+            }
+        },
+        selectQuality(q) {
+            this.currentItem.quality = q; this.qualitySearch = q; this.showQualityDropdown = false;
+            this.$refs.hsnInput.focus();
+            const existing = this.items.find(item => item.quality === q);
+            if (existing) this.currentItem.rate = existing.rate;
+        },
+        async addQualityFromDropdown() {
+            const q = this.qualitySearch.trim();
+            if (!q) { alert('Please enter quality name'); return; }
+            await this.addNewQuality(q);
+            this.selectQuality(q);
+        },
+        async addNewQuality(quality) {
+            if (!quality || this.qualities.includes(quality)) return;
+            try {
+                const res = await fetch('/purchase-invoices/qualities', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: quality}) });
+                if (res.ok) { this.qualities.push(quality); this.qualities.sort(); }
+            } catch (e) {}
+        },
+
+        // HSN dropdown (single currentItem)
+        filterHSN() {
+            const search = (this.hsnSearch || '').toLowerCase();
+            this.filteredHSN = search ? this.hsnCodes.filter(h => h.toLowerCase().includes(search)) : [...this.hsnCodes];
+            this.hsnSelectedIndex = 0;
+        },
+        handleHSNKeydown(e) {
+            if (!this.showHSNDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) { this.showHSNDropdown = true; this.filterHSN(); e.preventDefault(); return; }
+            if (!this.showHSNDropdown) return;
+            const maxIndex = this.filteredHSN.length;
+            switch(e.key) {
+                case 'ArrowDown': e.preventDefault(); this.hsnSelectedIndex = Math.min(this.hsnSelectedIndex + 1, maxIndex); break;
+                case 'ArrowUp': e.preventDefault(); this.hsnSelectedIndex = Math.max(this.hsnSelectedIndex - 1, 0); break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.hsnSelectedIndex < this.filteredHSN.length) this.selectHSN(this.filteredHSN[this.hsnSelectedIndex]);
+                    else this.addHSNFromDropdown();
+                    break;
+                case 'Escape': e.preventDefault(); this.showHSNDropdown = false; break;
+            }
+        },
+        selectHSN(h) {
+            this.currentItem.hsn = h; this.hsnSearch = h; this.showHSNDropdown = false;
+            this.$refs.qtyInput.focus();
+        },
+        async addHSNFromDropdown() {
+            const h = this.hsnSearch.trim();
+            if (!h) { alert('Please enter HSN code'); return; }
+            await this.addNewHSN(h);
+            this.selectHSN(h);
+        },
+        async addNewHSN(hsn) {
+            if (!hsn || this.hsnCodes.includes(hsn)) return;
+            try {
+                const res = await fetch('/purchase-invoices/hsn-codes', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code: hsn}) });
+                if (res.ok) { this.hsnCodes.push(hsn); this.hsnCodes.sort(); }
+            } catch (e) {}
+        },
+
         addItem() {
-            this.items.push({quality: '', hsn: '', quantity: 0, unit: 'KG', rate: 0, amount: 0, qualitySearch: '', hsnSearch: '', filteredQualities: [], filteredHSN: [], showQualityDropdown: false, showHSNDropdown: false, selectedQualityIndex: 0, selectedHSNIndex: 0});
+            if (!this.currentItem.quality || parseFloat(this.currentItem.quantity) <= 0) {
+                alert('⚠️ Please enter quality and quantity'); return;
+            }
+            const qty = parseFloat(this.currentItem.quantity) || 0;
+            const rate = parseFloat(this.currentItem.rate) || 0;
+            const amount = qty * rate;
+            this.items.push({
+                quality: this.currentItem.quality,
+                hsn: this.currentItem.hsn || '',
+                quantity: qty,
+                unit: this.currentItem.unit,
+                rate: rate,
+                amount: amount
+            });
+            this.currentItem = {quality: '', hsn: '', quantity: 0, unit: 'KG', rate: 0};
+            this.qualitySearch = '';
+            this.hsnSearch = '';
+            this.calculateTotals();
+            this.$refs.qualityInput.focus();
         },
-        
-        removeItem(index) {
-            if (this.items.length > 1) {
-                this.items.splice(index, 1);
+
+        handleRateTab(e) {
+            if (this.currentItem.quality && parseFloat(this.currentItem.quantity) > 0) {
+                e.preventDefault();
+                const qty = parseFloat(this.currentItem.quantity) || 0;
+                const rate = parseFloat(this.currentItem.rate) || 0;
+                this.items.push({
+                    quality: this.currentItem.quality, hsn: this.currentItem.hsn || '',
+                    quantity: qty, unit: this.currentItem.unit, rate: rate, amount: qty * rate
+                });
+                this.currentItem = {quality: '', hsn: '', quantity: 0, unit: 'KG', rate: 0};
+                this.qualitySearch = ''; this.hsnSearch = '';
                 this.calculateTotals();
+                this.$nextTick(() => this.$refs.saveBtn.focus());
             }
         },
-        
-        calculateAmount(index) {
-            const item = this.items[index];
-            item.amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);
-            this.calculateTotals();
-        },
-        
+
+        removeItem(idx) { this.items.splice(idx, 1); this.calculateTotals(); },
+
         calculateTotals() {
-            this.subtotal = this.items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+            this.subtotal = this.items.reduce((sum, item) => sum + item.amount, 0);
             this.subtotal += parseFloat(this.brokerage) || 0;
             this.subtotal += parseFloat(this.freight) || 0;
-            
             const gstAmount = this.subtotal * (parseFloat(this.gstRate) / 100);
             this.cgst = gstAmount / 2;
             this.sgst = gstAmount / 2;
-            
             const totalBeforeRound = this.subtotal + this.cgst + this.sgst;
             this.total = Math.round(totalBeforeRound);
             this.roundOff = this.total - totalBeforeRound;
         },
-        
-        openSupplierModal() {
-            this.showSupplierModal = true;
-            this.showSupplierDropdown = false;
-        },
-        
-        async saveSupplier() {
-            if (!this.newSupplier.name || !this.newSupplier.phone || !this.newSupplier.address || !this.newSupplier.city || !this.newSupplier.state || !this.newSupplier.pincode) {
-                alert('Please fill all required fields');
-                return;
-            }
-            
-            try {
-                const res = await fetch('/parties/quick-add-full', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        name: this.newSupplier.name,
-                        party_type: 'supplier',
-                        phone: this.newSupplier.phone,
-                        gstin: this.newSupplier.gstin,
-                        pan: this.newSupplier.pan,
-                        address_line1: this.newSupplier.address,
-                        city: this.newSupplier.city,
-                        state: this.newSupplier.state,
-                        pincode: this.newSupplier.pincode,
-                        broker_name: this.newSupplier.broker_name
-                    })
-                });
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    const supplier = {
-                        id: data.supplier.id, 
-                        name: data.supplier.name, 
-                        party_code: data.supplier.party_code, 
-                        broker: data.broker ? {id: data.broker.id, name: data.broker.name} : null
-                    };
-                    this.suppliers.push(supplier);
-                    this.selectSupplier(supplier);
-                    this.showSupplierModal = false;
-                    this.newSupplier = {name: '', phone: '', gstin: '', pan: '', address: '', city: '', state: '', pincode: '', broker_name: ''};
-                } else {
-                    alert('Failed to add supplier');
-                }
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
-        },
-        
+
         prepareSubmit(e) {
-            if (!this.selectedSupplier.id) {
-                e.preventDefault();
-                alert('Please select a supplier');
-                return;
-            }
-            
-            // Filter out empty items
-            const validItems = this.items.filter(item => 
-                item.quality && item.quality.trim() !== '' && 
-                parseFloat(item.quantity) > 0 && 
-                parseFloat(item.rate) > 0
-            );
-            
-            if (validItems.length === 0) {
-                e.preventDefault();
-                alert('Please add at least one valid item with quality, quantity, and rate');
-                return;
-            }
-            
-            // Replace items with valid items only
-            this.items = validItems;
+            if (!this.selectedSupplier.id) { e.preventDefault(); alert('Please select a supplier'); return; }
+            if (this.items.length === 0) { e.preventDefault(); alert('Please add at least one item'); return; }
+            const itemsInput = document.createElement('input');
+            itemsInput.type = 'hidden'; itemsInput.name = 'items';
+            itemsInput.value = JSON.stringify(this.items);
+            e.target.appendChild(itemsInput);
         },
-        
-        async addNewQuality(quality) {
-            if (!quality || quality.trim() === '') return;
-            const trimmed = quality.trim();
-            if (this.qualities.includes(trimmed)) return;
-            
-            try {
-                const res = await fetch('/purchase-invoices/qualities', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name: trimmed})
-                });
-                if (res.ok) {
-                    this.qualities.push(trimmed);
-                    this.qualities.sort();
-                }
-            } catch (e) {}
-        },
-        
-        async addNewHSN(hsn) {
-            if (!hsn || hsn.trim() === '') return;
-            const trimmed = hsn.trim();
-            if (this.hsnCodes.includes(trimmed)) return;
-            
-            try {
-                const res = await fetch('/purchase-invoices/hsn-codes', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({code: trimmed})
-                });
-                if (res.ok) {
-                    this.hsnCodes.push(trimmed);
-                    this.hsnCodes.sort();
-                }
-            } catch (e) {}
-        },
-        
-        filterQualities(index) {
-            const search = this.items[index].qualitySearch.toLowerCase();
-            this.items[index].filteredQualities = search ? this.qualities.filter(q => q.toLowerCase().includes(search)) : [...this.qualities];
-            this.items[index].selectedQualityIndex = 0;
-        },
-        
-        handleQualityKeydown(e, index) {
-            const item = this.items[index];
-            if (!item.showQualityDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
-                item.showQualityDropdown = true;
-                this.filterQualities(index);
-                e.preventDefault();
-                return;
-            }
-            if (!item.showQualityDropdown) return;
-            
-            const maxIndex = item.filteredQualities.length;
-            switch(e.key) {
-                case 'ArrowDown':
-                    e.preventDefault();
-                    item.selectedQualityIndex = Math.min(item.selectedQualityIndex + 1, maxIndex);
-                    this.scrollToSelected(this.$refs['qualityDropdown'+index]);
-                    break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    item.selectedQualityIndex = Math.max(item.selectedQualityIndex - 1, 0);
-                    this.scrollToSelected(this.$refs['qualityDropdown'+index]);
-                    break;
-                case 'Enter':
-                    e.preventDefault();
-                    if (item.selectedQualityIndex < item.filteredQualities.length) {
-                        this.selectQuality(index, item.filteredQualities[item.selectedQualityIndex]);
-                    } else if (item.selectedQualityIndex === item.filteredQualities.length) {
-                        this.addQualityFromDropdown(index);
-                    }
-                    break;
-                case 'Escape':
-                    e.preventDefault();
-                    item.showQualityDropdown = false;
-                    break;
-            }
-        },
-        
-        filterHSN(index) {
-            const search = this.items[index].hsnSearch.toLowerCase();
-            this.items[index].filteredHSN = search ? this.hsnCodes.filter(h => h.toLowerCase().includes(search)) : [...this.hsnCodes];
-            this.items[index].selectedHSNIndex = 0;
-        },
-        
-        handleHSNKeydown(e, index) {
-            const item = this.items[index];
-            if (!item.showHSNDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
-                item.showHSNDropdown = true;
-                this.filterHSN(index);
-                e.preventDefault();
-                return;
-            }
-            if (!item.showHSNDropdown) return;
-            
-            const maxIndex = item.filteredHSN.length;
-            switch(e.key) {
-                case 'ArrowDown':
-                    e.preventDefault();
-                    item.selectedHSNIndex = Math.min(item.selectedHSNIndex + 1, maxIndex);
-                    this.scrollToSelected(this.$refs['hsnDropdown'+index]);
-                    break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    item.selectedHSNIndex = Math.max(item.selectedHSNIndex - 1, 0);
-                    this.scrollToSelected(this.$refs['hsnDropdown'+index]);
-                    break;
-                case 'Enter':
-                    e.preventDefault();
-                    if (item.selectedHSNIndex < item.filteredHSN.length) {
-                        this.selectHSN(index, item.filteredHSN[item.selectedHSNIndex]);
-                    } else if (item.selectedHSNIndex === item.filteredHSN.length) {
-                        this.addHSNFromDropdown(index);
-                    }
-                    break;
-                case 'Escape':
-                    e.preventDefault();
-                    item.showHSNDropdown = false;
-                    break;
-            }
-        },
-        
-        selectQuality(index, quality) {
-            this.items[index].quality = quality;
-            this.items[index].qualitySearch = quality;
-            this.items[index].showQualityDropdown = false;
-        },
-        
-        selectHSN(index, hsn) {
-            this.items[index].hsn = hsn;
-            this.items[index].hsnSearch = hsn;
-            this.items[index].showHSNDropdown = false;
-        },
-        
-        async addQualityFromDropdown(index) {
-            const quality = this.items[index].qualitySearch.trim();
-            if (!quality) {
-                alert('Please enter quality name');
-                return;
-            }
-            await this.addNewQuality(quality);
-            this.selectQuality(index, quality);
-        },
-        
-        async addHSNFromDropdown(index) {
-            const hsn = this.items[index].hsnSearch.trim();
-            if (!hsn) {
-                alert('Please enter HSN code');
-                return;
-            }
-            await this.addNewHSN(hsn);
-            this.selectHSN(index, hsn);
-        },
-        
+
         scrollToSelected(dropdown) {
             this.$nextTick(() => {
                 if (!dropdown) return;
                 const selected = dropdown.querySelector('[data-selected="true"]');
-                if (selected) {
-                    selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                }
+                if (selected) selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             });
         }
     }

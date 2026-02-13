@@ -2,7 +2,7 @@ import re
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse
 from datetime import datetime
 from bson import ObjectId
 
@@ -271,29 +271,27 @@ async def add_financial_year(
     company_id: str = Form(...),
     financial_year: str = Form(...)
 ):
-    # Validate financial year
+    # Validate financial year format
     if not financial_year or not financial_year.strip():
-        return HTMLResponse(content=f'<script>alert("Financial year is required"); window.location.href="/dashboard";</script>')
+        return RedirectResponse(url="/dashboard", status_code=303)
     if not re.match(r'^\d{4}-\d{4}$', financial_year):
-        return HTMLResponse(content=f'<script>alert("Financial year must be in format YYYY-YYYY (e.g., 2025-2026)"); window.location.href="/dashboard";</script>')
-    
+        return RedirectResponse(url="/dashboard", status_code=303)
+
     try:
         start_year, end_year = map(int, financial_year.split('-'))
         if end_year != start_year + 1:
-            return HTMLResponse(content=f'<script>alert("End year must be start year + 1"); window.location.href="/dashboard";</script>')
+            return RedirectResponse(url="/dashboard", status_code=303)
     except ValueError:
-        return HTMLResponse(content=f'<script>alert("Invalid financial year format"); window.location.href="/dashboard";</script>')
-    
+        return RedirectResponse(url="/dashboard", status_code=303)
+
     companies_collection = await get_collection("companies")
-    
-    # Check if financial year already exists
     company = await companies_collection.find_one({"_id": ObjectId(company_id)})
     if not company:
-        return HTMLResponse(content=f'<script>alert("Company not found"); window.location.href="/dashboard";</script>')
-    
+        return RedirectResponse(url="/dashboard", status_code=303)
+
     if financial_year in company.get("financial_years", []):
-        return HTMLResponse(content=f'<script>alert("Financial year {financial_year} already exists"); window.location.href="/dashboard";</script>')
-    
+        return RedirectResponse(url="/dashboard", status_code=303)
+
     # Add financial year and set as current
     await companies_collection.update_one(
         {"_id": ObjectId(company_id)},
@@ -302,8 +300,12 @@ async def add_financial_year(
             "$addToSet": {"financial_years": financial_year}
         }
     )
-    
-    return HTMLResponse(content=f'<script>alert("Financial year {financial_year} added successfully"); window.location.href="/dashboard";</script>')
+
+    # Ensure cookie is set for this company
+    redirect_url = request.headers.get("referer", "/dashboard")
+    response = RedirectResponse(url=redirect_url, status_code=303)
+    response.set_cookie("current_company_id", company_id, httponly=True, samesite="lax")
+    return response
 
 @router.get("/{company_id}")
 async def view_company(

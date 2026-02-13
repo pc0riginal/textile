@@ -13,6 +13,36 @@ router = APIRouter()
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
+# ── Financial Year Helpers ─────────────────────────────────────────
+
+def get_fy_date_range(financial_year: str):
+    """Parse '2025-2026' into (datetime(2025,4,1), datetime(2026,3,31,23,59,59))"""
+    try:
+        start_year, end_year = map(int, financial_year.split("-"))
+        fy_start = datetime(start_year, 4, 1)
+        fy_end = datetime(end_year, 3, 31, 23, 59, 59)
+        return fy_start, fy_end
+    except Exception:
+        return None, None
+
+
+async def get_fy_opening_balance(bank_id, company_id, financial_year: str, bank_doc: dict = None):
+    """Get the opening balance for a specific FY. Falls back to bank's opening_balance."""
+    fy_col = await get_collection("bank_fy_balances")
+    fy_rec = await fy_col.find_one({
+        "bank_id": ObjectId(bank_id) if isinstance(bank_id, str) else bank_id,
+        "company_id": company_id,
+        "financial_year": financial_year,
+    })
+    if fy_rec:
+        return fy_rec.get("opening_balance", 0.0)
+    # Fallback: use bank's original opening_balance
+    if not bank_doc:
+        bank_col = await get_collection("bank_accounts")
+        bank_doc = await bank_col.find_one({"_id": ObjectId(bank_id) if isinstance(bank_id, str) else bank_id})
+    return bank_doc.get("opening_balance", 0.0) if bank_doc else 0.0
+
+
 # ── Cheque Number Helper ───────────────────────────────────────────
 
 async def get_next_cheque_no(bank_id: str, company_id, bank_doc: dict = None) -> int | None:
@@ -240,26 +270,42 @@ async def banking_delete(bank_id: str, request: Request, current_user: dict = De
 @router.get("/passbook")
 async def passbook(context: dict = Depends(get_template_context), bank_id: str = None):
     current_company = context["current_company"]
+    financial_year = current_company.get("financial_year", "")
+    fy_start, fy_end = get_fy_date_range(financial_year)
     bank_collection = await get_collection("bank_accounts")
     banks = await bank_collection.find({"company_id": current_company["_id"]}).to_list(None)
 
     transactions = []
     selected_bank = None
+    fy_opening_balance = 0.0
 
     if bank_id:
         selected_bank = await bank_collection.find_one({"_id": ObjectId(bank_id), "company_id": current_company["_id"]})
 
         if selected_bank:
+            # Get FY-specific opening balance
+            fy_opening_balance = await get_fy_opening_balance(
+                bank_id, current_company["_id"], financial_year, selected_bank
+            )
+
+            # Build date filter for FY
+            date_filter = {}
+            if fy_start and fy_end:
+                date_filter = {"$gte": fy_start, "$lte": fy_end}
+
             # 1) Payment-based transactions
             payments_collection = await get_collection("payments")
-            payments = await payments_collection.find({
+            pay_query = {
                 "company_id": current_company["_id"],
                 "$or": [
                     {"bank_name": selected_bank["bank_name"]},
                     {"bank_name": selected_bank["account_name"]}
                 ],
                 "effect_on_passbook": True
-            }).sort("payment_date", 1).to_list(None)
+            }
+            if date_filter:
+                pay_query["payment_date"] = date_filter
+            payments = await payments_collection.find(pay_query).sort("payment_date", 1).to_list(None)
 
             for payment in payments:
                 party_name = payment.get("party_name") or payment.get("supplier_name", "Unknown")
@@ -291,10 +337,13 @@ async def passbook(context: dict = Depends(get_template_context), bank_id: str =
 
             # 2) Direct passbook entries
             entries_collection = await get_collection("passbook_entries")
-            entries = await entries_collection.find({
+            entry_query = {
                 "bank_id": ObjectId(bank_id),
                 "company_id": current_company["_id"],
-            }).to_list(None)
+            }
+            if date_filter:
+                entry_query["date"] = date_filter
+            entries = await entries_collection.find(entry_query).to_list(None)
 
             for entry in entries:
                 transactions.append({
@@ -314,7 +363,7 @@ async def passbook(context: dict = Depends(get_template_context), bank_id: str =
             transactions.sort(key=lambda t: t["date"])
 
             # Calculate running balance
-            running_balance = selected_bank.get("opening_balance", 0)
+            running_balance = fy_opening_balance
             for txn in transactions:
                 running_balance += txn["credit"] - txn["debit"]
                 txn["balance"] = running_balance
@@ -324,6 +373,8 @@ async def passbook(context: dict = Depends(get_template_context), bank_id: str =
         "selected_bank": selected_bank,
         "transactions": transactions,
         "bank_id": str(bank_id) if bank_id else None,
+        "fy_opening_balance": fy_opening_balance,
+        "financial_year": financial_year,
     })
     return templates.TemplateResponse("banking/passbook.html", context)
 
@@ -490,3 +541,55 @@ async def cheque_print(
         ]
     })
     return templates.TemplateResponse("banking/cheque_print.html", context)
+
+
+# ── FY Opening Balance API ─────────────────────────────────────────
+
+@router.get("/api/fy-balance")
+async def api_get_fy_balance(
+    bank_id: str,
+    current_user: dict = Depends(get_current_user),
+    current_company: dict = Depends(get_current_company),
+):
+    """Get the opening balance for the current FY."""
+    financial_year = current_company.get("financial_year", "")
+    balance = await get_fy_opening_balance(bank_id, current_company["_id"], financial_year)
+    return JSONResponse(content={"opening_balance": balance, "financial_year": financial_year})
+
+
+@router.post("/api/fy-balance")
+async def api_set_fy_balance(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    current_company: dict = Depends(get_current_company),
+):
+    """Set/update the opening balance for a bank account in the current FY."""
+    data = await request.json()
+    bank_id = data.get("bank_id")
+    opening_balance = float(data.get("opening_balance", 0))
+    financial_year = current_company.get("financial_year", "")
+
+    if not bank_id or not financial_year:
+        raise HTTPException(status_code=400, detail="Bank ID and financial year are required")
+
+    fy_col = await get_collection("bank_fy_balances")
+    await fy_col.update_one(
+        {
+            "bank_id": ObjectId(bank_id),
+            "company_id": current_company["_id"],
+            "financial_year": financial_year,
+        },
+        {
+            "$set": {
+                "opening_balance": opening_balance,
+                "updated_by": current_user.get("username"),
+                "updated_at": datetime.utcnow(),
+            },
+            "$setOnInsert": {
+                "created_by": current_user.get("username"),
+                "created_at": datetime.utcnow(),
+            }
+        },
+        upsert=True,
+    )
+    return JSONResponse(content={"message": "Opening balance updated", "opening_balance": opening_balance, "financial_year": financial_year})

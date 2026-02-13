@@ -15,11 +15,10 @@ async def ensure_indexes():
         companies = await get_collection("companies")
         await companies.create_index("created_by")
 
-        # Parties
+        # Parties (global — not scoped by company/FY)
         parties = await get_collection("parties")
-        await parties.create_index([("company_id", 1), ("financial_year", 1)])
-        await parties.create_index([("company_id", 1), ("financial_year", 1), ("party_type", 1)])
-        await parties.create_index([("company_id", 1), ("financial_year", 1), ("name", 1)])
+        await parties.create_index("party_type")
+        await parties.create_index("name")
 
         # Purchase challans
         challans = await get_collection("purchase_challans")
@@ -57,9 +56,9 @@ async def ensure_indexes():
         await bank_txns.create_index([("company_id", 1), ("bank_account_id", 1)])
         await bank_txns.create_index("reference_id")
 
-        # Qualities
+        # Qualities (global — not scoped by company/FY)
         qualities = await get_collection("qualities")
-        await qualities.create_index([("company_id", 1), ("financial_year", 1), ("name", 1)], unique=True)
+        await qualities.create_index("name", unique=True)
 
         # Audit logs
         audit = await get_collection("audit_logs")

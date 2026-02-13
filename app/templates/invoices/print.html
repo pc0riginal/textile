@@ -38,8 +38,19 @@
         }
 
         @media print {
-            .print-btn {
-                display: none;
+            .print-btn,
+            #print-instructions {
+                display: none !important;
+            }
+
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
+            }
+
+            body {
+                margin: 0;
+                padding: 0;
             }
         }
     </style>
@@ -47,6 +58,11 @@
 
 <body>
     <button class="print-btn" onclick="window.print()">Print Invoice</button>
+
+    <div id="print-instructions" style="position:fixed;top:0;left:0;right:0;background:#fffbeb;border-bottom:2px solid #f59e0b;padding:8px 16px;z-index:999;font-family:Arial,sans-serif;font-size:13px;display:flex;align-items:center;justify-content:space-between;">
+        <span>⚠️ Print settings: Select <b>Margins → Default</b> and <b>Paper → A4</b> in Chrome print dialog. Uncheck "Headers and footers".</span>
+        <button onclick="this.parentElement.style.display='none'" style="background:none;border:1px solid #d97706;border-radius:4px;padding:2px 10px;cursor:pointer;color:#92400e;font-size:12px;">Got it</button>
+    </div>
 
     <table cellspacing="0" border="0">
         <colgroup width="31"></colgroup>

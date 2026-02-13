@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from datetime import datetime
 from bson import ObjectId
 from typing import List
+from pymongo.errors import DuplicateKeyError
 
 from app import TEMPLATES_DIR
 from app.dependencies import get_current_user, get_current_company, get_company_filter, get_template_context
@@ -128,9 +129,9 @@ async def sales_report(
     total_outstanding = total_pending
     
     base_filter = get_company_filter(current_company)
-    customers = await parties_collection.find({**base_filter, "party_type": {"$in": ["customer", "both"]}}).sort("name", 1).to_list(None) or []
-    brokers = await parties_collection.find({**base_filter, "party_type": {"$in": ["broker", "both"]}}).sort("name", 1).to_list(None) or []
-    qualities = await qualities_collection.find(base_filter).sort("name", 1).to_list(None) or []
+    customers = await parties_collection.find({"party_type": {"$in": ["customer", "both"]}}).sort("name", 1).to_list(None) or []
+    brokers = await parties_collection.find({"party_type": {"$in": ["broker", "both"]}}).sort("name", 1).to_list(None) or []
+    qualities = await qualities_collection.find({}).sort("name", 1).to_list(None) or []
     
     # Resolve selected filter names for print header
     selected_customer_name = ""
@@ -183,7 +184,6 @@ async def create_invoice_form(
     parties_collection = await get_collection("parties")
     base_filter = get_company_filter(current_company)
     customers = await parties_collection.find({
-        **base_filter,
         "party_type": {"$in": ["customer", "both"]}
     }).sort("name", 1).to_list(None)
     
@@ -285,7 +285,23 @@ async def create_invoice(
         "updated_at": datetime.utcnow()
     }
     
-    result = await invoices_collection.insert_one(invoice_data)
+    try:
+        result = await invoices_collection.insert_one(invoice_data)
+    except DuplicateKeyError:
+        # Re-render form with error
+        next_invoice_no = invoice_no
+        return templates.TemplateResponse("invoices/create.html", {
+            "request": request,
+            "current_user": current_user,
+            "current_company": current_company,
+            "next_invoice_no": next_invoice_no,
+            "error": f"Invoice number {invoice_no} already exists",
+            "breadcrumbs": [
+                {"name": "Dashboard", "url": "/dashboard"},
+                {"name": "Sales Invoices", "url": "/invoices"},
+                {"name": "Create", "url": "/invoices/create"}
+            ]
+        })
     
     if result.inserted_id:
         # Log audit
@@ -331,7 +347,6 @@ async def edit_invoice_form(
     
     base_filter = get_company_filter(current_company)
     customers = await parties_collection.find({
-        **base_filter,
         "party_type": {"$in": ["customer", "both"]}
     }).sort("name", 1).to_list(None)
     

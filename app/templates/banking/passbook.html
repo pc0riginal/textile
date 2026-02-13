@@ -46,12 +46,26 @@
         <div class="print-header">
             <div style="text-align:center; margin-bottom:6px;">
                 <div style="font-size:14px; font-weight:bold;">{{ current_company.name }}</div>
-                <div style="font-size:12px; font-weight:bold; margin-top:4px;">Bank Passbook - {{ selected_bank.bank_name }} ({{ selected_bank.account_number }})</div>
+                <div style="font-size:12px; font-weight:bold; margin-top:4px;">Bank Passbook - {{ selected_bank.bank_name }} ({{ selected_bank.account_number }}) | FY: {{ financial_year }}</div>
             </div>
         </div>
 
         <!-- Bank info card -->
-        <div class="mb-4 p-3 bg-blue-50 rounded-lg bank-info">
+        <div class="mb-4 p-3 bg-blue-50 rounded-lg bank-info" x-data="{
+            editing: false,
+            newBal: {{ fy_opening_balance }},
+            async saveFyBalance() {
+                try {
+                    const resp = await fetch('/banking/api/fy-balance', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ bank_id: '{{ bank_id }}', opening_balance: parseFloat(this.newBal) || 0 })
+                    });
+                    if (resp.ok) { window.location.reload(); }
+                    else { alert('Failed to update opening balance'); }
+                } catch (e) { alert('Error: ' + e.message); }
+            }
+        }">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                 <div>
                     <label class="text-xs font-medium text-gray-500">Bank Name</label>
@@ -62,12 +76,20 @@
                     <p class="text-xs md:text-sm font-semibold truncate">{{ selected_bank.account_number }}</p>
                 </div>
                 <div>
-                    <label class="text-xs font-medium text-gray-500">Opening Bal</label>
-                    <p class="text-xs md:text-sm font-semibold">₹{{ "{:,.2f}".format(selected_bank.opening_balance) }}</p>
+                    <label class="text-xs font-medium text-gray-500">Opening Bal (FY: {{ financial_year }})</label>
+                    <div class="flex items-center gap-1">
+                        <p x-show="!editing" class="text-xs md:text-sm font-semibold">₹{{ "{:,.2f}".format(fy_opening_balance) }}</p>
+                        <input x-show="editing" x-ref="balInput" type="number" step="0.01" x-model="newBal" class="w-28 px-1.5 py-0.5 text-xs border rounded focus:ring-1 focus:ring-blue-500" @keydown.enter="saveFyBalance()" @keydown.escape="editing = false">
+                        <button x-show="!editing" @click="editing = true; $nextTick(() => $refs.balInput.focus())" class="text-blue-600 hover:text-blue-800 no-print" title="Edit opening balance">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                        <button x-show="editing" @click="saveFyBalance()" class="text-green-600 hover:text-green-800 text-xs font-medium no-print">Save</button>
+                        <button x-show="editing" @click="editing = false; newBal = {{ fy_opening_balance }}" class="text-gray-500 hover:text-gray-700 text-xs no-print">Cancel</button>
+                    </div>
                 </div>
                 <div>
                     <label class="text-xs font-medium text-gray-500">Current Bal</label>
-                    <p class="text-xs md:text-sm font-semibold text-green-600">₹{{ "{:,.2f}".format(transactions[-1].balance if transactions else selected_bank.opening_balance) }}</p>
+                    <p class="text-xs md:text-sm font-semibold text-green-600">₹{{ "{:,.2f}".format(transactions[-1].balance if transactions else fy_opening_balance) }}</p>
                 </div>
             </div>
         </div>

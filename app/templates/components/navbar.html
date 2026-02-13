@@ -1,4 +1,5 @@
-<nav class="bg-white shadow-sm border-b border-gray-200 fixed w-full top-0 z-40">
+<nav class="bg-white shadow-sm border-b border-gray-200 fixed w-full top-0 z-40"
+     x-data="navbarData()" x-init="loadData()">
     <div class="px-4 md:px-6 py-4 md:py-3">
         <div class="flex items-center justify-between">
             <!-- Mobile Menu Button -->
@@ -20,30 +21,30 @@
                 </div>
                 
                 <!-- Company & FY Switcher (Mobile Combined) -->
-                {% if current_company %}
+                <template x-if="currentCompany">
                 <div class="md:hidden flex-1 min-w-0">
-                    <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" class="w-full flex items-center justify-between px-2 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    <div class="relative">
+                        <button @click="mobileOpen = !mobileOpen" class="w-full flex items-center justify-between px-2 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                             <div class="flex flex-col items-start min-w-0 flex-1">
-                                <span class="text-xs font-medium text-gray-700 truncate w-full">{{ current_company.name }}</span>
-                                <span class="text-[10px] text-blue-600">FY: {{ current_company.financial_year }}</span>
+                                <span class="text-xs font-medium text-gray-700 truncate w-full" x-text="currentCompany.name"></span>
+                                <span class="text-[10px] text-blue-600" x-text="'FY: ' + currentCompany.financial_year"></span>
                             </div>
                             <svg class="w-4 h-4 text-gray-500 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
                         </button>
                         
-                        <div x-show="open" @click.away="open = false" x-cloak
+                        <div x-show="mobileOpen" @click.away="mobileOpen = false" x-cloak
                              class="fixed inset-x-4 top-20 bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-50 max-h-[70vh] overflow-y-auto">
                             <div class="px-4 py-2 bg-gray-50 border-b border-gray-200">
                                 <div class="text-xs font-semibold text-gray-700">Switch Company</div>
                             </div>
-                            {% for company in user_companies %}
-                            <a href="/switch-company/{{ company._id }}" 
-                               class="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 {% if company._id == current_company._id %}bg-blue-50 text-blue-700{% endif %}">
-                                {{ company.name }}
-                            </a>
-                            {% endfor %}
+                            <template x-for="company in companies" :key="company.id">
+                                <a :href="'/switch-company/' + company.id" 
+                                   class="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
+                                   :class="company.id === currentCompany.id ? 'bg-blue-50 text-blue-700' : ''"
+                                   x-text="company.name"></a>
+                            </template>
                             <a href="/companies/create" class="block px-4 py-3 text-sm text-blue-600 hover:bg-gray-100 border-t border-gray-200">
                                 + Add New Company
                             </a>
@@ -52,12 +53,12 @@
                                 <div class="text-xs font-semibold text-gray-700">Switch Financial Year</div>
                             </div>
                             <form method="POST" action="/switch-financial-year">
-                                {% for fy in financial_years %}
-                                <button type="submit" name="financial_year" value="{{ fy }}" 
-                                        class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 {% if fy == current_company.financial_year %}bg-blue-50 text-blue-700{% endif %}">
-                                    {{ fy }}
-                                </button>
-                                {% endfor %}
+                                <template x-for="fy in financialYears" :key="fy">
+                                    <button type="submit" name="financial_year" :value="fy" 
+                                            class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
+                                            :class="fy === currentCompany.financial_year ? 'bg-blue-50 text-blue-700' : ''"
+                                            x-text="fy"></button>
+                                </template>
                             </form>
                             <div x-data="{ showAdd: false, newFY: '' }">
                                 <div x-show="!showAdd">
@@ -66,7 +67,7 @@
                                     </button>
                                 </div>
                                 <form x-show="showAdd" method="POST" action="/companies/add-financial-year" class="px-4 py-3 border-t border-gray-200">
-                                    <input type="hidden" name="company_id" value="{{ current_company._id }}">
+                                    <input type="hidden" name="company_id" :value="currentCompany.id">
                                     <input x-model="newFY" type="text" name="financial_year" placeholder="2025-2026" 
                                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded mb-2" required>
                                     <div class="flex gap-2">
@@ -78,25 +79,27 @@
                         </div>
                     </div>
                 </div>
+                </template>
                 
                 <!-- Desktop Separate Switchers -->
+                <template x-if="currentCompany">
                 <div class="hidden md:flex items-center gap-2">
-                    <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" class="flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                            <span class="text-sm font-medium text-gray-700">{{ current_company.name }}</span>
+                    <div class="relative">
+                        <button @click="companyOpen = !companyOpen" class="flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                            <span class="text-sm font-medium text-gray-700" x-text="currentCompany.name"></span>
                             <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
                         </button>
                         
-                        <div x-show="open" @click.away="open = false" x-cloak
+                        <div x-show="companyOpen" @click.away="companyOpen = false" x-cloak
                              class="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                            {% for company in user_companies %}
-                            <a href="/switch-company/{{ company._id }}" 
-                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {% if company._id == current_company._id %}bg-blue-50 text-blue-700{% endif %}">
-                                {{ company.name }}
-                            </a>
-                            {% endfor %}
+                            <template x-for="company in companies" :key="company.id">
+                                <a :href="'/switch-company/' + company.id" 
+                                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                   :class="company.id === currentCompany.id ? 'bg-blue-50 text-blue-700' : ''"
+                                   x-text="company.name"></a>
+                            </template>
                             <hr class="my-2">
                             <a href="/companies/create" class="block px-4 py-2 text-sm text-blue-600 hover:bg-gray-100">
                                 + Add New Company
@@ -104,43 +107,45 @@
                         </div>
                     </div>
                     
-                    <div x-data="{ open: false, showAdd: false, newFY: '' }" class="relative">
-                        <button @click="open = !open" class="flex items-center space-x-1 px-3 py-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                            <span class="text-sm font-medium text-blue-700">FY: {{ current_company.financial_year }}</span>
+                    <div class="relative">
+                        <button @click="fyOpen = !fyOpen" class="flex items-center space-x-1 px-3 py-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                            <span class="text-sm font-medium text-blue-700" x-text="'FY: ' + currentCompany.financial_year"></span>
                             <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
                         </button>
                         
-                        <div x-show="open" @click.away="open = false" x-cloak
+                        <div x-show="fyOpen" @click.away="fyOpen = false" x-cloak
                              class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
                             <form method="POST" action="/switch-financial-year">
-                                {% for fy in financial_years %}
-                                <button type="submit" name="financial_year" value="{{ fy }}" 
-                                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {% if fy == current_company.financial_year %}bg-blue-50 text-blue-700{% endif %}">
-                                    {{ fy }}
-                                </button>
-                                {% endfor %}
+                                <template x-for="fy in financialYears" :key="fy">
+                                    <button type="submit" name="financial_year" :value="fy" 
+                                            class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            :class="fy === currentCompany.financial_year ? 'bg-blue-50 text-blue-700' : ''"
+                                            x-text="fy"></button>
+                                </template>
                             </form>
                             <hr class="my-2">
-                            <div x-show="!showAdd">
-                                <button @click="showAdd = true" class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100">
-                                    + Add New FY
-                                </button>
-                            </div>
-                            <form x-show="showAdd" method="POST" action="/companies/add-financial-year" class="px-4 py-2">
-                                <input type="hidden" name="company_id" value="{{ current_company._id }}">
-                                <input x-model="newFY" type="text" name="financial_year" placeholder="2025-2026" 
-                                       class="w-full px-2 py-1 text-xs border border-gray-300 rounded mb-2" required>
-                                <div class="flex gap-2">
-                                    <button type="submit" class="flex-1 px-2 py-1 text-xs bg-blue-600 text-white rounded">Add</button>
-                                    <button type="button" @click="showAdd = false; newFY = ''" class="flex-1 px-2 py-1 text-xs bg-gray-200 rounded">Cancel</button>
+                            <div x-data="{ showAdd: false, newFY: '' }">
+                                <div x-show="!showAdd">
+                                    <button @click="showAdd = true" class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100">
+                                        + Add New FY
+                                    </button>
                                 </div>
-                            </form>
+                                <form x-show="showAdd" method="POST" action="/companies/add-financial-year" class="px-4 py-2">
+                                    <input type="hidden" name="company_id" :value="currentCompany.id">
+                                    <input x-model="newFY" type="text" name="financial_year" placeholder="2025-2026" 
+                                           class="w-full px-2 py-1 text-xs border border-gray-300 rounded mb-2" required>
+                                    <div class="flex gap-2">
+                                        <button type="submit" class="flex-1 px-2 py-1 text-xs bg-blue-600 text-white rounded">Add</button>
+                                        <button type="button" @click="showAdd = false; newFY = ''" class="flex-1 px-2 py-1 text-xs bg-gray-200 rounded">Cancel</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
-                {% endif %}
+                </template>
             </div>
             
             <!-- User Menu -->
@@ -170,3 +175,26 @@
         </div>
     </div>
 </nav>
+
+<script>
+function navbarData() {
+    return {
+        currentCompany: null,
+        companies: [],
+        financialYears: [],
+        mobileOpen: false,
+        companyOpen: false,
+        fyOpen: false,
+        async loadData() {
+            try {
+                var res = await fetch('/api/navbar-data');
+                if (!res.ok) return;
+                var data = await res.json();
+                this.currentCompany = data.current_company;
+                this.companies = data.companies;
+                this.financialYears = data.financial_years;
+            } catch(e) {}
+        }
+    };
+}
+</script>
