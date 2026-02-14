@@ -9,6 +9,7 @@ from app import TEMPLATES_DIR
 from app.dependencies import get_current_user, get_current_company, get_template_context
 from app.database import get_collection
 from app.services.payment_service import escape_regex
+import re
 
 router = APIRouter()
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -173,6 +174,36 @@ async def quick_add_party(
     current_company: dict = Depends(get_current_company)
 ):
     data = await request.json()
+    
+    # Backend validation
+    errors = []
+    name = (data.get("name") or "").strip()
+    if not name:
+        errors.append("Party name is required")
+    
+    phone = (data.get("phone") or "").strip()
+    if phone and not re.match(r'^\d{10}$', phone):
+        errors.append("Mobile must be 10 digits")
+    
+    gstin = (data.get("gstin") or "").strip()
+    if gstin and not re.match(r'^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$', gstin, re.IGNORECASE):
+        errors.append("GSTIN format invalid")
+    
+    delivery_pincode = (data.get("delivery_pincode") or "").strip()
+    if delivery_pincode and not re.match(r'^\d{6}$', delivery_pincode):
+        errors.append("Delivery pincode must be 6 digits")
+    
+    office_pincode = (data.get("office_pincode") or "").strip()
+    if office_pincode and not re.match(r'^\d{6}$', office_pincode):
+        errors.append("Office pincode must be 6 digits")
+    
+    email = (data.get("email") or "").strip()
+    if email and not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+        errors.append("Email format invalid")
+    
+    if errors:
+        return JSONResponse(status_code=422, content={"detail": "; ".join(errors)})
+    
     parties_collection = await get_collection("parties")
     
     existing = await parties_collection.find_one({
@@ -221,6 +252,32 @@ async def quick_add_full_party(
     current_company: dict = Depends(get_current_company)
 ):
     data = await request.json()
+    
+    # Backend validation
+    errors = []
+    name = (data.get("name") or "").strip()
+    if not name:
+        errors.append("Name is required")
+    
+    phone = (data.get("phone") or "").strip()
+    if phone and not re.match(r'^\d{10}$', phone):
+        errors.append("Phone must be 10 digits")
+    
+    gstin = (data.get("gstin") or "").strip()
+    if gstin and not re.match(r'^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$', gstin, re.IGNORECASE):
+        errors.append("GSTIN format invalid")
+    
+    pan = (data.get("pan") or "").strip()
+    if pan and not re.match(r'^[A-Z]{5}\d{4}[A-Z]$', pan, re.IGNORECASE):
+        errors.append("PAN format invalid")
+    
+    pincode = (data.get("pincode") or "").strip()
+    if pincode and not re.match(r'^\d{6}$', pincode):
+        errors.append("Pincode must be 6 digits")
+    
+    if errors:
+        return JSONResponse(status_code=422, content={"detail": "; ".join(errors)})
+    
     parties_collection = await get_collection("parties")
     
     count = await parties_collection.count_documents({})
@@ -233,13 +290,13 @@ async def quick_add_full_party(
         "gstin": data.get("gstin", ""),
         "pan": data.get("pan", ""),
         "address": {
-            "line1": data["address_line1"],
+            "line1": data.get("address_line1", ""),
             "line2": "",
-            "city": data["city"],
-            "state": data["state"],
-            "pincode": data["pincode"]
+            "city": data.get("city", ""),
+            "state": data.get("state", ""),
+            "pincode": data.get("pincode", "")
         },
-        "contact": {"phone": data["phone"], "email": ""},
+        "contact": {"phone": data.get("phone", ""), "email": ""},
         "credit_limit": 0.0,
         "opening_balance": 0.0,
         "current_balance": 0.0,

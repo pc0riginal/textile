@@ -28,7 +28,8 @@
                     <div class="space-y-2">
                         <div>
                             <label class="block text-xs font-medium text-gray-700 mb-0.5">Party Name *</label>
-                            <input type="text" name="name" x-model="name" required autofocus class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
+                            <input type="text" name="name" x-model="name" required autofocus class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500" :class="nameError ? 'border-red-500' : ''" @input="nameError = ''">
+                            <span x-show="nameError" x-text="nameError" class="text-xs text-red-600 block"></span>
                         </div>
                         
                         <div>
@@ -81,7 +82,7 @@
 
                         <div>
                             <label class="block text-xs font-medium text-gray-700 mb-0.5">Mobile Number</label>
-                            <input type="text" name="phone" x-model="phone" @input="validateMobile" maxlength="10" required class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
+                            <input type="text" name="phone" x-model="phone" @input="validateMobile" maxlength="10" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
                             <p x-show="mobileError" class="text-xs text-red-600 mt-1" x-text="mobileError"></p>
                         </div>
 
@@ -177,17 +178,19 @@
     </div>
 
     <!-- Broker Modal -->
-    <div x-show="showBrokerModal" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div x-show="showBrokerModal" x-effect="if(showBrokerModal) { brokerNameError = ''; brokerPhoneError = ''; $nextTick(() => $refs.brokerNameInput.focus()); }" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-lg p-6 w-full max-w-md" @click.away="showBrokerModal = false">
             <h3 class="text-lg font-semibold mb-4">Add New Broker</h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Broker Name *</label>
-                    <input type="text" x-model="newBrokerName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    <input type="text" x-ref="brokerNameInput" x-model="newBrokerName" @input="brokerNameError = ''" :class="brokerNameError ? 'border-red-500' : 'border-gray-300'" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                    <span x-show="brokerNameError" x-text="brokerNameError" class="text-xs text-red-600 block"></span>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-                    <input type="text" x-model="newBrokerPhone" maxlength="10" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    <input type="text" x-model="newBrokerPhone" @input="brokerPhoneError = ''" maxlength="10" :class="brokerPhoneError ? 'border-red-500' : 'border-gray-300'" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                    <span x-show="brokerPhoneError" x-text="brokerPhoneError" class="text-xs text-red-600 block"></span>
                 </div>
             </div>
             <div class="flex gap-3 justify-end mt-6">
@@ -204,6 +207,7 @@
 function partyForm() {
     return {
         name: '',
+        nameError: '',
         phone: '',
         gstin: '',
         deliveryPincode: '',
@@ -219,6 +223,8 @@ function partyForm() {
         showBrokerModal: false,
         newBrokerName: '',
         newBrokerPhone: '',
+        brokerNameError: '',
+        brokerPhoneError: '',
 
         validateMobile() {
             if (this.phone && !/^\d{10}$/.test(this.phone)) {
@@ -267,15 +273,15 @@ function partyForm() {
         },
 
         validateForm(e) {
+            this.nameError = '';
             if (!this.name.trim()) {
                 e.preventDefault();
-                alert('Please enter Party Name.');
+                this.nameError = 'Party Name is required';
                 return false;
             }
 
             if (this.mobileError || this.gstError || this.pincodeError || this.dharaDayError || this.interestError) {
                 e.preventDefault();
-                alert('Please fix all validation errors before submitting.');
                 return false;
             }
 
@@ -283,10 +289,12 @@ function partyForm() {
         },
 
         async saveBroker() {
-            if (!this.newBrokerName.trim()) {
-                alert('Please enter broker name');
-                return;
-            }
+            this.brokerNameError = '';
+            this.brokerPhoneError = '';
+            let hasError = false;
+            if (!this.newBrokerName.trim()) { this.brokerNameError = 'Broker Name is required'; hasError = true; }
+            if (this.newBrokerPhone && this.newBrokerPhone.trim() && !/^\d{10}$/.test(this.newBrokerPhone.trim())) { this.brokerPhoneError = 'Mobile must be 10 digits'; hasError = true; }
+            if (hasError) return;
 
             try {
                 const res = await fetch('/parties/quick-add', {
@@ -294,6 +302,7 @@ function partyForm() {
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         name: this.newBrokerName,
+                        phone: this.newBrokerPhone || '',
                         party_type: 'broker'
                     })
                 });

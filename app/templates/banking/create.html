@@ -10,38 +10,41 @@
     </div>
 
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
-        <form method="POST" action="/banking/create" class="space-y-4">
+        <form method="POST" action="/banking/create" class="space-y-4" onsubmit="return validateBankForm()">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label for="account_name" class="block text-sm font-medium text-gray-700 mb-2">Account Name *</label>
                     <input type="text" id="account_name" name="account_name" required autofocus
+                           oninput="validateField('account_name')"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span id="account_name-error" class="text-xs text-red-600 hidden"></span>
                 </div>
-                
                 <div>
                     <label for="account_number" class="block text-sm font-medium text-gray-700 mb-2">Account Number *</label>
                     <input type="text" id="account_number" name="account_number" required
+                           oninput="validateField('account_number')"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span id="account_number-error" class="text-xs text-red-600 hidden"></span>
                 </div>
-                
                 <div>
                     <label for="bank_name" class="block text-sm font-medium text-gray-700 mb-2">Bank Name *</label>
                     <input type="text" id="bank_name" name="bank_name" required
+                           oninput="validateField('bank_name')"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span id="bank_name-error" class="text-xs text-red-600 hidden"></span>
                 </div>
-                
                 <div>
                     <label for="branch" class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
                     <input type="text" id="branch" name="branch"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
-                
                 <div>
                     <label for="ifsc_code" class="block text-sm font-medium text-gray-700 mb-2">IFSC Code *</label>
                     <input type="text" id="ifsc_code" name="ifsc_code" required maxlength="11"
+                           oninput="this.value = this.value.toUpperCase(); validateField('ifsc_code')"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span id="ifsc_code-error" class="text-xs text-red-600 hidden"></span>
                 </div>
-                
                 <div>
                     <label for="account_type" class="block text-sm font-medium text-gray-700 mb-2">Account Type *</label>
                     <select id="account_type" name="account_type" required
@@ -52,13 +55,11 @@
                         <option value="Overdraft">Overdraft</option>
                     </select>
                 </div>
-                
                 <div>
                     <label for="opening_balance" class="block text-sm font-medium text-gray-700 mb-2">Opening Balance</label>
                     <input type="number" id="opening_balance" name="opening_balance" step="0.01" value="0"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
-                
                 <div>
                     <label for="next_cheque_no" class="block text-sm font-medium text-gray-700 mb-2">Starting Cheque No</label>
                     <input type="number" id="next_cheque_no" name="next_cheque_no" min="1" step="1" placeholder="e.g. 100001"
@@ -66,16 +67,50 @@
                     <p class="text-xs text-gray-500 mt-1">First cheque number for this account. Auto-increments after each cheque entry.</p>
                 </div>
             </div>
-
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-4 border-t border-gray-200">
-                <a href="/banking/banks" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 text-center text-sm">
-                    Cancel
-                </a>
-                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
-                    Create Account
-                </button>
+                <a href="/banking/banks" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 text-center text-sm">Cancel</a>
+                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">Create Account</button>
             </div>
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function validateField(id) {
+    const val = document.getElementById(id).value.trim();
+    clearError(id);
+    if (id === 'account_name' && !val) { showError(id, 'Account name is required'); return false; }
+    if (id === 'account_number') {
+        if (!val) { showError(id, 'Account number is required'); return false; }
+        if (!/^\d+$/.test(val)) { showError(id, 'Account number must contain only digits'); return false; }
+    }
+    if (id === 'bank_name' && !val) { showError(id, 'Bank name is required'); return false; }
+    if (id === 'ifsc_code') {
+        if (!val) { showError(id, 'IFSC code is required'); return false; }
+        if (val.length !== 11) { showError(id, 'IFSC code must be 11 characters'); return false; }
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(val)) { showError(id, 'Invalid IFSC format (e.g. SBIN0001234)'); return false; }
+    }
+    return true;
+}
+function validateBankForm() {
+    let valid = true, first = null;
+    ['account_name','account_number','bank_name','ifsc_code'].forEach(f => {
+        if (!validateField(f)) { valid = false; if (!first) first = document.getElementById(f); }
+    });
+    if (!valid && first) first.focus();
+    return valid;
+}
+function showError(id, msg) {
+    const f = document.getElementById(id), e = document.getElementById(id+'-error');
+    if (f) f.classList.add('border-red-500');
+    if (e) { e.textContent = msg; e.classList.remove('hidden'); }
+}
+function clearError(id) {
+    const f = document.getElementById(id), e = document.getElementById(id+'-error');
+    if (f) f.classList.remove('border-red-500');
+    if (e) { e.textContent = ''; e.classList.add('hidden'); }
+}
+</script>
 {% endblock %}

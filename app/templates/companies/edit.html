@@ -17,19 +17,20 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
                         <input type="text" id="name" name="name" value="{{ company.name }}" required autofocus
+                               oninput="validateCompanyField('name')"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <span id="name-error" class="text-xs text-red-600 hidden"></span>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">GSTIN *</label>
                         <input type="text" id="gstin" name="gstin" value="{{ company.gstin or '' }}" maxlength="15" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" oninput="this.value = this.value.toUpperCase()">
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" oninput="this.value = this.value.toUpperCase(); validateCompanyField('gstin')">
                         <span id="gstin-error" class="text-xs text-red-600 hidden"></span>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">PAN</label>
                         <input type="text" id="pan" name="pan" value="{{ company.pan or '' }}" maxlength="10"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" oninput="this.value = this.value.toUpperCase()">
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" oninput="this.value = this.value.toUpperCase(); validateCompanyField('pan')">
                         <span id="pan-error" class="text-xs text-red-600 hidden"></span>
                     </div>
                 </div>
@@ -40,6 +41,7 @@
                 <div class="space-y-4">
                     <div>
                         <input type="text" id="address_line1" name="address_line1" value="{{ company.address.line1 }}" required placeholder="Address Line 1"
+                               oninput="validateCompanyField('address_line1')"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <span id="address_line1-error" class="text-xs text-red-600 hidden"></span>
                     </div>
@@ -52,6 +54,7 @@
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <div>
                             <input type="text" id="pincode" name="pincode" value="{{ company.address.pincode or '' }}" placeholder="Pincode" maxlength="6"
+                                   oninput="validateCompanyField('pincode')"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <span id="pincode-error" class="text-xs text-red-600 hidden"></span>
                         </div>
@@ -64,11 +67,13 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div>
                         <input type="tel" id="phone" name="phone" value="{{ company.contact.phone }}" required maxlength="10" placeholder="Phone"
+                               oninput="validateCompanyField('phone')"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <span id="phone-error" class="text-xs text-red-600 hidden"></span>
                     </div>
                     <div>
                         <input type="email" id="email" name="email" value="{{ company.contact.email or '' }}" placeholder="Email"
+                               oninput="validateCompanyField('email')"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <span id="email-error" class="text-xs text-red-600 hidden"></span>
                     </div>
@@ -86,90 +91,38 @@
 
 {% block scripts %}
 <script>
+function validateCompanyField(id) {
+    const val = document.getElementById(id).value.trim();
+    clearError(id);
+    if (id === 'name') {
+        if (!val) { showError(id, 'Company name is required'); return false; }
+        if (/^\d+$/.test(val)) { showError(id, 'Company name must contain letters'); return false; }
+    }
+    if (id === 'gstin') {
+        if (!val) { showError(id, 'GSTIN is required'); return false; }
+        if (val.length !== 15) { showError(id, 'GSTIN must be exactly 15 characters'); return false; }
+        if (!/^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][A-Z\d]$/.test(val)) { showError(id, 'Invalid GSTIN format (e.g. 22AAAAA0000A1Z5)'); return false; }
+    }
+    if (id === 'pan' && val) {
+        if (val.length !== 10) { showError(id, 'PAN must be exactly 10 characters'); return false; }
+        if (!/^[A-Z]{5}\d{4}[A-Z]$/.test(val)) { showError(id, 'Invalid PAN format (e.g. AAAAA0000A)'); return false; }
+    }
+    if (id === 'address_line1' && !val) { showError(id, 'Address line 1 is required'); return false; }
+    if (id === 'pincode' && val && !/^[0-9]{6}$/.test(val)) { showError(id, 'Pincode must be exactly 6 digits'); return false; }
+    if (id === 'phone') {
+        if (!val) { showError(id, 'Phone is required'); return false; }
+        if (!/^[0-9]{10}$/.test(val)) { showError(id, 'Phone must be exactly 10 digits'); return false; }
+    }
+    if (id === 'email' && val && !/^[\w\.-]+@[\w\.-]+\.\w+$/.test(val)) { showError(id, 'Invalid email format'); return false; }
+    return true;
+}
+
 function validateForm() {
-    let isValid = true;
-    let firstError = null;
-    
-    document.querySelectorAll('[id$="-error"]').forEach(el => {
-        el.classList.add('hidden');
-        el.textContent = '';
+    let isValid = true, firstError = null;
+    ['name','gstin','pan','address_line1','pincode','phone','email'].forEach(f => {
+        if (!validateCompanyField(f)) { isValid = false; if (!firstError) firstError = document.getElementById(f); }
     });
-    document.querySelectorAll('input').forEach(el => el.classList.remove('border-red-500'));
-    
-    const name = document.getElementById('name');
-    if (!name.value.trim()) {
-        showError('name', 'Company name is required');
-        isValid = false;
-        if (!firstError) firstError = name;
-    } else if (/^\d+$/.test(name.value.trim())) {
-        showError('name', 'Company name must contain letters');
-        isValid = false;
-        if (!firstError) firstError = name;
-    }
-    
-    const gstin = document.getElementById('gstin');
-    if (!gstin.value.trim()) {
-        showError('gstin', 'GSTIN is required');
-        isValid = false;
-        if (!firstError) firstError = gstin;
-    } else if (gstin.value.length !== 15) {
-        showError('gstin', 'GSTIN must be exactly 15 characters');
-        isValid = false;
-        if (!firstError) firstError = gstin;
-    } else if (!/^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][A-Z\d]$/.test(gstin.value)) {
-        showError('gstin', 'Invalid GSTIN format (e.g. 22AAAAA0000A1Z5)');
-        isValid = false;
-        if (!firstError) firstError = gstin;
-    }
-    
-    const pan = document.getElementById('pan');
-    if (pan.value && pan.value.length !== 10) {
-        showError('pan', 'PAN must be exactly 10 characters');
-        isValid = false;
-        if (!firstError) firstError = pan;
-    } else if (pan.value && !/^[A-Z]{5}\d{4}[A-Z]$/.test(pan.value)) {
-        showError('pan', 'Invalid PAN format (e.g. AAAAA0000A)');
-        isValid = false;
-        if (!firstError) firstError = pan;
-    }
-    
-    const address = document.getElementById('address_line1');
-    if (!address.value.trim()) {
-        showError('address_line1', 'Address line 1 is required');
-        isValid = false;
-        if (!firstError) firstError = address;
-    }
-    
-    const pincode = document.getElementById('pincode');
-    if (pincode.value && !/^[0-9]{6}$/.test(pincode.value)) {
-        showError('pincode', 'Pincode must be exactly 6 digits');
-        isValid = false;
-        if (!firstError) firstError = pincode;
-    }
-    
-    const phone = document.getElementById('phone');
-    if (!phone.value.trim()) {
-        showError('phone', 'Phone is required');
-        isValid = false;
-        if (!firstError) firstError = phone;
-    } else if (!/^[0-9]{10}$/.test(phone.value)) {
-        showError('phone', 'Phone must be exactly 10 digits');
-        isValid = false;
-        if (!firstError) firstError = phone;
-    }
-    
-    const email = document.getElementById('email');
-    if (email.value && !/^[\w\.-]+@[\w\.-]+\.\w+$/.test(email.value)) {
-        showError('email', 'Invalid email format');
-        isValid = false;
-        if (!firstError) firstError = email;
-    }
-    
-    if (!isValid && firstError) {
-        firstError.focus();
-        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    
+    if (!isValid && firstError) { firstError.focus(); firstError.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     return isValid;
 }
 
@@ -179,6 +132,13 @@ function showError(fieldId, message) {
     field.classList.add('border-red-500');
     error.textContent = message;
     error.classList.remove('hidden');
+}
+
+function clearError(fieldId) {
+    const field = document.getElementById(fieldId);
+    const error = document.getElementById(fieldId + '-error');
+    if (field) field.classList.remove('border-red-500');
+    if (error) { error.textContent = ''; error.classList.add('hidden'); }
 }
 </script>
 {% endblock %}

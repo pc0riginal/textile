@@ -226,23 +226,43 @@
     </form>
 
     <!-- Supplier Modal -->
-    <div x-show="showSupplierModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;">
+    <div x-show="showSupplierModal" x-effect="if(showSupplierModal) { supplierErrors = {}; $nextTick(() => $refs.supplierNameInput.focus()); }" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;">
         <div class="bg-white rounded-lg p-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto" @click.away="showSupplierModal = false">
             <h3 class="text-base font-bold mb-3">Add New Supplier</h3>
             <div class="space-y-2">
                 <div class="grid grid-cols-2 gap-2">
-                    <div><label class="block text-xs font-medium mb-0.5">Name *</label><input type="text" x-model="newSupplier.name" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
-                    <div><label class="block text-xs font-medium mb-0.5">Phone *</label><input type="tel" x-model="newSupplier.phone" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                    <div>
+                        <label class="block text-xs font-medium mb-0.5">Name *</label>
+                        <input type="text" x-ref="supplierNameInput" x-model="newSupplier.name" @input="delete supplierErrors.name" :class="supplierErrors.name ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                        <span x-show="supplierErrors.name" x-text="supplierErrors.name" class="text-xs text-red-600 block"></span>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-0.5">Phone</label>
+                        <input type="tel" x-model="newSupplier.phone" @input="delete supplierErrors.phone" maxlength="10" :class="supplierErrors.phone ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                        <span x-show="supplierErrors.phone" x-text="supplierErrors.phone" class="text-xs text-red-600 block"></span>
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <div><label class="block text-xs font-medium mb-0.5">GSTIN</label><input type="text" x-model="newSupplier.gstin" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
-                    <div><label class="block text-xs font-medium mb-0.5">PAN</label><input type="text" x-model="newSupplier.pan" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                    <div>
+                        <label class="block text-xs font-medium mb-0.5">GSTIN</label>
+                        <input type="text" x-model="newSupplier.gstin" @input="delete supplierErrors.gstin" maxlength="15" :class="supplierErrors.gstin ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                        <span x-show="supplierErrors.gstin" x-text="supplierErrors.gstin" class="text-xs text-red-600 block"></span>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-0.5">PAN</label>
+                        <input type="text" x-model="newSupplier.pan" @input="delete supplierErrors.pan" maxlength="10" :class="supplierErrors.pan ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                        <span x-show="supplierErrors.pan" x-text="supplierErrors.pan" class="text-xs text-red-600 block"></span>
+                    </div>
                 </div>
-                <div><label class="block text-xs font-medium mb-0.5">Address *</label><input type="text" x-model="newSupplier.address" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                <div><label class="block text-xs font-medium mb-0.5">Address</label><input type="text" x-model="newSupplier.address" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
                 <div class="grid grid-cols-3 gap-2">
-                    <div><label class="block text-xs font-medium mb-0.5">City *</label><input type="text" x-model="newSupplier.city" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
-                    <div><label class="block text-xs font-medium mb-0.5">State *</label><input type="text" x-model="newSupplier.state" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
-                    <div><label class="block text-xs font-medium mb-0.5">Pincode *</label><input type="text" x-model="newSupplier.pincode" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                    <div><label class="block text-xs font-medium mb-0.5">City</label><input type="text" x-model="newSupplier.city" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                    <div><label class="block text-xs font-medium mb-0.5">State</label><input type="text" x-model="newSupplier.state" class="w-full px-2 py-1.5 text-xs border rounded-md"></div>
+                    <div>
+                        <label class="block text-xs font-medium mb-0.5">Pincode</label>
+                        <input type="text" x-model="newSupplier.pincode" @input="delete supplierErrors.pincode" maxlength="6" :class="supplierErrors.pincode ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
+                        <span x-show="supplierErrors.pincode" x-text="supplierErrors.pincode" class="text-xs text-red-600 block"></span>
+                    </div>
                 </div>
                 <div class="border-t pt-2"><label class="block text-xs font-medium mb-0.5">Broker Name</label><input type="text" x-model="newSupplier.broker_name" class="w-full px-2 py-1.5 text-xs border rounded-md" placeholder="Optional"></div>
             </div>
@@ -289,7 +309,8 @@ function challanForm() {
         roundOff: 0,
         total: 0,
         showSupplierModal: false,
-        newSupplier: {name: '', phone: '', gstin: '', pan: '', address: '', city: '', state: '', pincode: '', broker_name: ''},
+        supplierErrors: {},
+        newSupplier: {name: '', phone: '', gstin: '', pan: '', address: '', city: 'Surat', state: 'GUJARAT', pincode: '', broker_name: ''},
         qualities: [],
         hsnCodes: [],
 
@@ -348,21 +369,13 @@ function challanForm() {
         openSupplierModal() { this.showSupplierModal = true; this.showSupplierDropdown = false; },
 
         async saveSupplier() {
-            const errors = [];
-            if (!this.newSupplier.name || !this.newSupplier.name.trim()) errors.push('Name');
-            if (!this.newSupplier.phone || !this.newSupplier.phone.trim()) errors.push('Phone');
-            if (this.newSupplier.phone && !/^\d{10}$/.test(this.newSupplier.phone.trim())) errors.push('Phone (must be 10 digits)');
-            if (!this.newSupplier.address || !this.newSupplier.address.trim()) errors.push('Address');
-            if (!this.newSupplier.city || !this.newSupplier.city.trim()) errors.push('City');
-            if (!this.newSupplier.state || !this.newSupplier.state.trim()) errors.push('State');
-            if (!this.newSupplier.pincode || !this.newSupplier.pincode.trim()) errors.push('Pincode');
-            if (this.newSupplier.pincode && !/^\d{6}$/.test(this.newSupplier.pincode.trim())) errors.push('Pincode (must be 6 digits)');
-            if (this.newSupplier.gstin && this.newSupplier.gstin.trim() && !/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/.test(this.newSupplier.gstin.trim().toUpperCase())) errors.push('GSTIN (invalid format)');
-            if (this.newSupplier.pan && this.newSupplier.pan.trim() && !/^[A-Z]{5}\d{4}[A-Z]{1}$/.test(this.newSupplier.pan.trim().toUpperCase())) errors.push('PAN (invalid format)');
-            if (errors.length > 0) {
-                alert('Please fix the following:\n• ' + errors.join('\n• '));
-                return;
-            }
+            this.supplierErrors = {};
+            if (!this.newSupplier.name || !this.newSupplier.name.trim()) this.supplierErrors.name = 'Name is required';
+            if (this.newSupplier.phone && this.newSupplier.phone.trim() && !/^\d{10}$/.test(this.newSupplier.phone.trim())) this.supplierErrors.phone = 'Phone must be 10 digits';
+            if (this.newSupplier.pincode && this.newSupplier.pincode.trim() && !/^\d{6}$/.test(this.newSupplier.pincode.trim())) this.supplierErrors.pincode = 'Pincode must be 6 digits';
+            if (this.newSupplier.gstin && this.newSupplier.gstin.trim() && !/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/i.test(this.newSupplier.gstin.trim())) this.supplierErrors.gstin = 'GSTIN format invalid';
+            if (this.newSupplier.pan && this.newSupplier.pan.trim() && !/^[A-Z]{5}\d{4}[A-Z]{1}$/i.test(this.newSupplier.pan.trim())) this.supplierErrors.pan = 'PAN format invalid';
+            if (Object.keys(this.supplierErrors).length > 0) return;
             try {
                 const res = await fetch('/parties/quick-add-full', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -372,7 +385,7 @@ function challanForm() {
                     const data = await res.json();
                     const supplier = {id: data.supplier.id, name: data.supplier.name, party_code: data.supplier.party_code, broker: data.broker ? {id: data.broker.id, name: data.broker.name} : null};
                     this.suppliers.push(supplier); this.selectSupplier(supplier); this.showSupplierModal = false;
-                    this.newSupplier = {name: '', phone: '', gstin: '', pan: '', address: '', city: '', state: '', pincode: '', broker_name: ''};
+                    this.newSupplier = {name: '', phone: '', gstin: '', pan: '', address: '', city: 'Surat', state: 'GUJARAT', pincode: '', broker_name: ''};
                     this.$nextTick(() => this.$refs.supplierInput.focus());
                 } else {
                     const err = await res.json().catch(() => null);
