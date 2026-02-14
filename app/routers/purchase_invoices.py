@@ -58,6 +58,16 @@ async def list_purchase_invoices(
     })
     return templates.TemplateResponse("purchase_invoices/list.html", context)
 
+@router.get("/api/check-invoice-no")
+async def check_purchase_invoice_no(
+    invoice_no: str,
+    current_company: dict = Depends(get_current_company)
+):
+    challans_collection = await get_collection("purchase_challans")
+    base_filter = get_company_filter(current_company)
+    existing = await challans_collection.find_one({**base_filter, "invoice_no": invoice_no})
+    return JSONResponse(content={"exists": existing is not None})
+
 @router.get("/create")
 async def create_challan_form(
     request: Request,
@@ -88,9 +98,13 @@ async def create_challan_form(
         })
     
     # Get next invoice number
-    last_invoice = await challans_collection.find(
-        base_filter
-    ).sort("invoice_no", -1).limit(1).to_list(1)
+    pipeline = [
+        {"$match": base_filter},
+        {"$addFields": {"invoice_no_int": {"$toInt": {"$ifNull": ["$invoice_no", "0"]}}}},
+        {"$sort": {"invoice_no_int": -1}},
+        {"$limit": 1}
+    ]
+    last_invoice = await challans_collection.aggregate(pipeline).to_list(1)
     
     next_invoice_no = "1"
     if last_invoice:

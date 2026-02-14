@@ -174,6 +174,16 @@ async def sales_report(
     })
     return templates.TemplateResponse("invoices/report.html", context)
 
+@router.get("/api/check-invoice-no")
+async def check_invoice_no(
+    invoice_no: str,
+    current_company: dict = Depends(get_current_company)
+):
+    invoices_collection = await get_collection("sales_invoices")
+    base_filter = get_company_filter(current_company)
+    existing = await invoices_collection.find_one({**base_filter, "invoice_no": invoice_no})
+    return JSONResponse(content={"exists": existing is not None})
+
 @router.get("/create")
 async def create_invoice_form(
     request: Request,
@@ -189,14 +199,17 @@ async def create_invoice_form(
     
     # Get next invoice number
     invoices_collection = await get_collection("sales_invoices")
-    last_invoice = await invoices_collection.find_one(
-        base_filter,
-        sort=[("invoice_no", -1)]
-    )
+    pipeline = [
+        {"$match": base_filter},
+        {"$addFields": {"invoice_no_int": {"$toInt": {"$ifNull": ["$invoice_no", "0"]}}}},
+        {"$sort": {"invoice_no_int": -1}},
+        {"$limit": 1}
+    ]
+    last_invoices = await invoices_collection.aggregate(pipeline).to_list(1)
     next_invoice_no = 1
-    if last_invoice and last_invoice.get("invoice_no"):
+    if last_invoices:
         try:
-            next_invoice_no = int(last_invoice["invoice_no"]) + 1
+            next_invoice_no = int(last_invoices[0]["invoice_no"]) + 1
         except (ValueError, TypeError, KeyError):
             next_invoice_no = 1
     
