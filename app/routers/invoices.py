@@ -261,8 +261,11 @@ async def create_invoice(
         raise HTTPException(status_code=400, detail="Items are required")
     
     subtotal = sum(item.get("taxable_amount", 0) for item in items)
+    vatav_percent = float(form_data.get("vatav_percent", 0))
+    vatav_amount = float(form_data.get("vatav_amount", 0))
+    after_vatav = subtotal - vatav_amount
     gst_total = sum(item.get("cgst", 0) + item.get("sgst", 0) + item.get("igst", 0) for item in items)
-    before_round = subtotal + gst_total
+    before_round = after_vatav + gst_total
     total_amount = round(before_round)
     round_off = total_amount - before_round
     
@@ -277,11 +280,13 @@ async def create_invoice(
         "invoice_date": datetime.fromisoformat(invoice_date),
         "customer_id": ObjectId(customer_id),
         "customer_name": customer["name"],
-        "broker_id": ObjectId(broker_id) if broker_id else None,
+        "broker_id": ObjectId(broker_id) if broker_id and broker_id not in ("", "None") and len(broker_id) == 24 else None,
         "broker_name": broker_name,
         "items": items,
         "freight": 0.0,
         "other_charges": 0.0,
+        "vatav_percent": vatav_percent,
+        "vatav_amount": vatav_amount,
         "round_off": round_off,
         "total_amount": total_amount,
         "due_days": due_days,
@@ -414,18 +419,39 @@ async def update_invoice(
         raise HTTPException(status_code=400, detail="Items are required")
     
     subtotal = sum(item.get("taxable_amount", 0) for item in items)
+    vatav_percent = float(form_data.get("vatav_percent", 0))
+    vatav_amount = float(form_data.get("vatav_amount", 0))
+    after_vatav = subtotal - vatav_amount
     gst_total = sum(item.get("cgst", 0) + item.get("sgst", 0) + item.get("igst", 0) for item in items)
-    before_round = subtotal + gst_total
+    before_round = after_vatav + gst_total
     total_amount = round(before_round)
     round_off = total_amount - before_round
     
+    broker_id = form_data.get("broker_id")
+    broker_name = form_data.get("broker_name", "NONE")
+    delivery = form_data.get("delivery", "")
+    transporter = form_data.get("transporter", "")
+    vehicle_no = form_data.get("vehicle_no", "")
+    due_days = int(form_data.get("due_days", 0))
+    due_date_str = form_data.get("due_date")
+    due_date = datetime.fromisoformat(due_date_str) if due_date_str else None
+
     update_data = {
         "invoice_no": invoice_no,
         "challan_no": challan_no,
         "invoice_date": datetime.fromisoformat(invoice_date),
         "customer_id": ObjectId(customer_id),
         "customer_name": customer["name"],
+        "broker_id": ObjectId(broker_id) if broker_id and broker_id not in ("", "None") and len(broker_id) == 24 else None,
+        "broker_name": broker_name,
+        "delivery": delivery,
+        "transporter": transporter,
+        "vehicle_no": vehicle_no,
+        "due_days": due_days,
+        "due_date": due_date,
         "items": items,
+        "vatav_percent": vatav_percent,
+        "vatav_amount": vatav_amount,
         "round_off": round_off,
         "total_amount": total_amount,
         "balance_amount": total_amount - invoice.get("paid_amount", 0),

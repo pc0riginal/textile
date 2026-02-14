@@ -13,13 +13,29 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @router.get("")
 async def list_qualities(
-    context: dict = Depends(get_template_context)
+    context: dict = Depends(get_template_context),
+    search: str = "",
+    page: int = 1,
 ):
     qualities_collection = await get_collection("qualities")
-    qualities = await qualities_collection.find({}).sort("name", 1).to_list(None)
+    per_page = 25
+    skip = (page - 1) * per_page
+
+    filter_query = {}
+    if search:
+        filter_query["name"] = {"$regex": search, "$options": "i"}
+
+    total = await qualities_collection.count_documents(filter_query)
+    total_pages = max(1, -(-total // per_page))
+
+    qualities = await qualities_collection.find(filter_query).sort("name", 1).skip(skip).limit(per_page).to_list(per_page)
     
     context.update({
         "qualities": qualities,
+        "search": search,
+        "page": page,
+        "total_pages": total_pages,
+        "total": total,
         "breadcrumbs": [
             {"name": "Dashboard", "url": "/dashboard"},
             {"name": "Qualities", "url": "/qualities"}

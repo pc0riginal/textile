@@ -16,10 +16,21 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 @router.get("")
 async def list_companies(
-    context: dict = Depends(get_template_context)
+    context: dict = Depends(get_template_context),
+    page: int = 1,
 ):
+    companies = context["user_companies"]
+    per_page = 25
+    total = len(companies)
+    total_pages = max(1, -(-total // per_page))
+    skip = (page - 1) * per_page
+    paginated = companies[skip:skip + per_page]
+
     context.update({
-        "companies": context["user_companies"],
+        "companies": paginated,
+        "page": page,
+        "total_pages": total_pages,
+        "total": total,
         "breadcrumbs": [
             {"name": "Dashboard", "url": "/dashboard"},
             {"name": "Companies", "url": "/companies"}
