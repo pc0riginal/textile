@@ -27,7 +27,7 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-3">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Company</label>
-                    <input type="text" name="company_name" value="{{ current_company.get('name', '') }}" readonly class="w-full px-2 py-1.5 text-xs border rounded bg-gray-50">
+                    <input type="text" name="company_name" x-ref="companyField" value="{{ current_company.get('name', '') }}" readonly class="w-full px-2 py-1.5 text-xs border rounded bg-gray-50">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Invoice No. *</label>
@@ -120,7 +120,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Rate</label>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Rate *</label>
                     <input type="number" step="0.01" x-ref="rateInput" x-model="currentItem.rate" @keydown.enter.prevent="addItem()" @keydown.tab="handleRateTab($event)" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
                 </div>
                 <div class="col-span-2 md:col-span-1 flex items-end">
@@ -317,7 +317,7 @@ function challanForm() {
         init() {
             this.filteredSuppliers = this.suppliers;
             this.loadMasterData();
-            this.$nextTick(() => this.$refs.supplierInput.focus());
+            this.$nextTick(() => this.$refs.companyField.focus());
         },
 
         async loadMasterData() {
@@ -479,6 +479,9 @@ function challanForm() {
             if (!this.currentItem.quality || parseFloat(this.currentItem.quantity) <= 0) {
                 alert('⚠️ Please enter quality and quantity'); return;
             }
+            if (!this.currentItem.rate || parseFloat(this.currentItem.rate) <= 0) {
+                alert('⚠️ Please enter a valid rate'); this.$refs.rateInput.focus(); return;
+            }
             const qty = parseFloat(this.currentItem.quantity) || 0;
             const rate = parseFloat(this.currentItem.rate) || 0;
             const amount = qty * rate;
@@ -498,8 +501,7 @@ function challanForm() {
         },
 
         handleRateTab(e) {
-            if (this.currentItem.quality && parseFloat(this.currentItem.quantity) > 0) {
-                e.preventDefault();
+            if (this.currentItem.quality && parseFloat(this.currentItem.quantity) > 0 && parseFloat(this.currentItem.rate) > 0) {
                 const qty = parseFloat(this.currentItem.quantity) || 0;
                 const rate = parseFloat(this.currentItem.rate) || 0;
                 this.items.push({
@@ -509,7 +511,6 @@ function challanForm() {
                 this.currentItem = {quality: '', hsn: '', quantity: 0, unit: 'KG', rate: 0};
                 this.qualitySearch = ''; this.hsnSearch = '';
                 this.calculateTotals();
-                this.$nextTick(() => this.$refs.saveBtn.focus());
             }
         },
 

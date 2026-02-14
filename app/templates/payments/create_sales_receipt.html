@@ -13,16 +13,20 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Select Firm</label>
-                <input type="text" :value="'{{ current_company.name }}'" readonly class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-50">
+                <input type="text" x-ref="firmField" :value="'{{ current_company.name }}'" readonly class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-50">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Receipt Party Name *</label>
-                <select name="customer_id" x-ref="partySelect" x-model="customerId" @change="loadInvoices(); $nextTick(() => $refs.dateInput.focus())" required autofocus class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded">
-                    <option value="">Select Customer</option>
-                    {% for customer in customers %}
-                    <option value="{{ customer._id }}">{{ customer.name }}</option>
-                    {% endfor %}
-                </select>
+                <input type="hidden" name="customer_id" x-model="customerId" required>
+                <div class="relative">
+                    <input type="text" x-ref="partyInput" x-model="partySearch" @input="filterParties; errors.customer = ''" @focus="showPartyDropdown = true; filterParties()" @click="showPartyDropdown = true; filterParties()" @blur="setTimeout(() => showPartyDropdown = false, 200)" @keydown="handlePartyKeydown($event)" placeholder="Search customer..." class="w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-blue-500" :class="errors.customer ? 'border-red-500' : 'border-gray-300'">
+                    <div x-show="showPartyDropdown && filteredParties.length > 0" x-cloak class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-60 overflow-auto">
+                        <template x-for="(p, idx) in filteredParties" :key="p._id">
+                            <div @mousedown.prevent @click="selectParty(p)" :class="idx === partySelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-xs" x-text="p.name"></div>
+                        </template>
+                    </div>
+                </div>
+                <p x-show="errors.customer" x-text="errors.customer" class="text-xs text-red-600 mt-0.5"></p>
             </div>
         </div>
 
@@ -30,25 +34,31 @@
         <div class="grid grid-cols-3 md:grid-cols-6 gap-2">
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Date *</label>
-                <input type="date" name="payment_date" x-ref="dateInput" x-model="paymentDate" required @keydown.enter.prevent="$refs.bankSelect.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
+                <input type="date" name="payment_date" x-ref="dateInput" x-model="paymentDate" required @keydown.enter.prevent="$refs.bankInput.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Deposit Bank</label>
-                <select name="bank_name" x-ref="bankSelect" id="salesBankSelect" @change="onBankChange" @keydown.enter.prevent="$refs.partyBankSelect.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
-                    <option value="">Select</option>
-                    {% for bank in banks %}
-                    <option value="{{ bank.bank_name }}" data-bank-id="{{ bank._id }}">{{ bank.bank_name }}</option>
-                    {% endfor %}
-                </select>
+                <input type="hidden" name="bank_name" x-model="selectedBankName">
+                <div class="relative">
+                    <input type="text" x-ref="bankInput" x-model="bankSearch" @input="filterBanks" @focus="showBankDropdown = true; filterBanks()" @click="showBankDropdown = true; filterBanks()" @blur="setTimeout(() => showBankDropdown = false, 200)" @keydown="handleBankKeydown($event)" placeholder="Search bank..." class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
+                    <div x-show="showBankDropdown && filteredBanks.length > 0" x-cloak class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-48 overflow-auto">
+                        <template x-for="(b, idx) in filteredBanks" :key="b._id">
+                            <div @mousedown.prevent @click="selectBank(b)" :class="idx === bankSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-xs" x-text="b.bank_name"></div>
+                        </template>
+                    </div>
+                </div>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Party Bank</label>
-                <select name="party_bank" x-ref="partyBankSelect" @keydown.enter.prevent="$refs.rtgsSelect.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
-                    <option value="">Select</option>
-                    <template x-for="bank in partyBanks" :key="bank">
-                        <option :value="bank" x-text="bank"></option>
-                    </template>
-                </select>
+                <input type="hidden" name="party_bank" x-model="selectedPartyBank">
+                <div class="relative">
+                    <input type="text" x-ref="partyBankInput" x-model="partyBankSearch" @input="filterPartyBanks" @focus="showPartyBankDropdown = true; filterPartyBanks()" @click="showPartyBankDropdown = true; filterPartyBanks()" @blur="setTimeout(() => showPartyBankDropdown = false, 200)" @keydown="handlePartyBankKeydown($event)" placeholder="Search party bank..." class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
+                    <div x-show="showPartyBankDropdown && filteredPartyBanks.length > 0" x-cloak class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-48 overflow-auto">
+                        <template x-for="(pb, idx) in filteredPartyBanks" :key="pb">
+                            <div @mousedown.prevent @click="selectPartyBank(pb)" :class="idx === partyBankSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-xs" x-text="pb"></div>
+                        </template>
+                    </div>
+                </div>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">RTGS</label>
@@ -64,7 +74,7 @@
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Amount</label>
-                <input type="number" step="0.01" x-ref="amountInput" x-model.number="chequeAmount" @input="calculateBalance" @keydown.enter.prevent="if(invoices.length > 0) $refs.invoiceSection.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
+                <input type="number" step="0.01" x-ref="amountInput" x-model.number="chequeAmount" @input="calculateBalance; errors.balance = ''" @keydown.enter.prevent="if(invoices.length > 0) $refs.invoiceSection.focus()" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
             </div>
         </div>
 
@@ -101,68 +111,73 @@
         </div>
 
         <!-- Invoices Table -->
-        <div class="border border-gray-300 rounded overflow-hidden" x-ref="invoiceSection" tabindex="0" @keydown="handleInvoiceKeydown($event)" @focus="if(invoices.length > 0 && focusedIndex < 0) focusedIndex = 0">
-            <div class="bg-gray-100 px-3 py-1.5 border-b border-gray-300 flex items-center justify-between">
-                <h3 class="text-xs font-semibold text-gray-700">Invoice Selection</h3>
-                <span class="text-xs text-gray-400" x-show="invoices.length > 0">↑↓ Navigate · Space Select · Tab to Amount</span>
-            </div>
+        <div x-show="invoices.length > 0" :class="errors.invoices ? 'border-red-500 border rounded' : ''">
             <!-- Mobile Card View -->
-            <div class="md:hidden max-h-56 overflow-y-auto divide-y divide-gray-100" x-ref="invoiceListMobile">
-                <template x-for="(invoice, index) in invoices" :key="invoice.id">
-                    <div class="p-2.5 cursor-pointer" :class="{'bg-blue-50': invoice.selected, 'ring-2 ring-inset ring-blue-400': focusedIndex === index}" @click="toggleInvoice(index)">
-                        <div class="flex items-center gap-2 mb-1.5">
-                            <input type="checkbox" x-model="invoice.selected" @change="calculateBalance" @click.stop :disabled="!invoice.selected && chequeAmount > 0 && amountDisburse >= chequeAmount" class="rounded">
-                            <span class="text-xs font-medium text-gray-900" x-text="invoice.invoice_no"></span>
-                            <span class="text-xs text-gray-500 ml-auto" x-text="invoice.invoice_date"></span>
-                        </div>
-                        <div class="flex justify-between text-xs pl-6">
-                            <div>
-                                <span class="text-gray-500">Total:</span> <span x-text="invoice.total_amount.toFixed(2)"></span>
-                                <span class="text-gray-400 mx-1">|</span>
-                                <span class="text-green-600">Paid:</span> <span class="text-green-600" x-text="invoice.total_paid.toFixed(2)"></span>
+            <div class="md:hidden space-y-3">
+                <template x-for="invoice in invoices" :key="invoice.id">
+                    <div :class="invoice.selected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'" class="border-2 rounded-lg p-3 space-y-2">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-start gap-2">
+                                <input type="checkbox" x-model="invoice.selected" @change="errors.invoices = ''; calculateBalance()" :disabled="!invoice.selected && chequeAmount > 0 && amountDisburse >= chequeAmount" class="mt-1 rounded border-gray-300">
+                                <div>
+                                    <div class="text-sm font-semibold text-gray-900" x-text="invoice.invoice_no"></div>
+                                    <div class="text-xs text-gray-500" x-text="invoice.invoice_date"></div>
+                                </div>
                             </div>
-                            <span class="text-red-600 font-medium">Due: <span x-text="invoice.outstanding.toFixed(2)"></span></span>
                         </div>
-                        <div class="pl-6 mt-1.5" x-show="invoice.selected">
-                            <input type="number" step="0.01" x-model.number="invoice.amount" @input="calculateBalance" @click.stop class="w-full px-1.5 py-1 text-xs border border-gray-300 rounded text-right">
+                        <div class="border-t pt-2 space-y-1 text-xs">
+                            <div class="flex justify-between"><span class="text-gray-600">Total:</span> <span class="font-medium" x-text="'₹' + invoice.total_amount.toFixed(2)"></span></div>
+                            <div class="flex justify-between"><span class="text-gray-600">Paid:</span> <span class="text-green-600" x-text="'₹' + invoice.total_paid.toFixed(2)"></span></div>
+                            <div class="flex justify-between"><span class="text-gray-600">Outstanding:</span> <span class="font-semibold text-red-600" x-text="'₹' + invoice.outstanding.toFixed(2)"></span></div>
+                        </div>
+                        <div x-show="invoice.selected" class="pt-2 border-t">
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Pay Amount</label>
+                            <input type="number" step="0.01" x-model.number="invoice.amount" @input="calculateBalance" class="w-full px-2 py-1.5 text-sm border rounded">
                         </div>
                     </div>
                 </template>
             </div>
             <!-- Desktop Table View -->
-            <div class="hidden md:block max-h-56 overflow-y-auto" x-ref="invoiceList">
-                <table class="w-full text-xs">
-                    <thead class="bg-gray-50 sticky top-0">
+            <div class="hidden md:block overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                    <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-600">✓</th>
-                            <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-600">Invoice No</th>
-                            <th class="px-2 py-1.5 text-left text-xs font-medium text-gray-600">Date</th>
-                            <th class="px-2 py-1.5 text-right text-xs font-medium text-gray-600">Total</th>
-                            <th class="px-2 py-1.5 text-right text-xs font-medium text-gray-600">Paid</th>
-                            <th class="px-2 py-1.5 text-right text-xs font-medium text-gray-600">Outstanding</th>
-                            <th class="px-2 py-1.5 text-right text-xs font-medium text-gray-600">Amount</th>
+                            <th class="px-2 py-2 text-center font-medium text-gray-700">Select</th>
+                            <th class="px-2 py-2 text-left font-medium text-gray-700">Invoice No</th>
+                            <th class="px-2 py-2 text-left font-medium text-gray-700">Date</th>
+                            <th class="px-2 py-2 text-right font-medium text-gray-700">Total</th>
+                            <th class="px-2 py-2 text-right font-medium text-gray-700">Paid</th>
+                            <th class="px-2 py-2 text-right font-medium text-gray-700">Outstanding</th>
+                            <th class="px-2 py-2 text-right font-medium text-gray-700">Pay Amount</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <template x-for="(invoice, index) in invoices" :key="invoice.id">
-                            <tr class="border-b border-gray-100 cursor-pointer" :class="{'bg-blue-100': focusedIndex === index && invoice.selected, 'bg-blue-50': focusedIndex === index && !invoice.selected, 'bg-green-50': focusedIndex !== index && invoice.selected}" @click="toggleInvoice(index); focusedIndex = index; $refs.invoiceSection.focus()">
-                                <td class="px-2 py-1.5">
-                                    <input type="checkbox" x-model="invoice.selected" @change="calculateBalance" @click.stop :disabled="!invoice.selected && chequeAmount > 0 && amountDisburse >= chequeAmount" class="rounded" tabindex="-1">
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-for="invoice in invoices" :key="invoice.id">
+                            <tr :class="invoice.selected ? 'bg-blue-50' : 'hover:bg-gray-50'">
+                                <td class="px-2 py-2 text-center">
+                                    <input type="checkbox" x-model="invoice.selected" @change="errors.invoices = ''; calculateBalance()" :disabled="!invoice.selected && chequeAmount > 0 && amountDisburse >= chequeAmount" class="rounded border-gray-300">
                                 </td>
-                                <td class="px-2 py-1.5 font-medium" x-text="invoice.invoice_no"></td>
-                                <td class="px-2 py-1.5 text-gray-600" x-text="invoice.invoice_date"></td>
-                                <td class="px-2 py-1.5 text-right" x-text="invoice.total_amount.toFixed(2)"></td>
-                                <td class="px-2 py-1.5 text-right text-green-600" x-text="invoice.total_paid.toFixed(2)"></td>
-                                <td class="px-2 py-1.5 text-right text-red-600 font-medium" x-text="invoice.outstanding.toFixed(2)"></td>
-                                <td class="px-2 py-1.5">
-                                    <input type="number" step="0.01" x-model.number="invoice.amount" @input="calculateBalance" @click.stop :disabled="!invoice.selected" class="w-20 px-1.5 py-1 text-xs border border-gray-300 rounded text-right" tabindex="-1" :x-ref="'amt' + index">
+                                <td class="px-2 py-2 font-medium" x-text="invoice.invoice_no"></td>
+                                <td class="px-2 py-2 text-gray-600" x-text="invoice.invoice_date"></td>
+                                <td class="px-2 py-2 text-right" x-text="invoice.total_amount.toFixed(2)"></td>
+                                <td class="px-2 py-2 text-right text-green-600" x-text="invoice.total_paid.toFixed(2)"></td>
+                                <td class="px-2 py-2 text-right font-semibold text-red-600" x-text="invoice.outstanding.toFixed(2)"></td>
+                                <td class="px-2 py-2 text-right">
+                                    <input type="number" step="0.01" x-show="invoice.selected" x-model.number="invoice.amount" @input="calculateBalance" class="w-20 px-1 py-1 text-xs border rounded text-right">
                                 </td>
                             </tr>
                         </template>
                     </tbody>
+                    <tfoot class="bg-gray-50 font-semibold">
+                        <tr>
+                            <td colspan="6" class="px-2 py-2 text-right">Total Disbursement:</td>
+                            <td class="px-2 py-2 text-right text-blue-600" x-text="'₹' + amountDisburse.toFixed(2)"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
+        <p x-show="errors.invoices" x-text="errors.invoices" class="text-xs text-red-600 mt-0.5"></p>
 
         <!-- Summary -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-2 bg-gradient-to-r from-gray-50 to-gray-100 p-2 rounded border border-gray-200">
@@ -176,7 +191,7 @@
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Kasar</label>
-                <input type="number" step="0.01" name="kasar" x-model.number="kasar" @input="calculateBalance" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
+                <input type="number" step="0.01" name="kasar" x-ref="kasarInput" x-model.number="kasar" @input="calculateBalance" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded">
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-700 mb-0.5">Interest</label>
@@ -186,6 +201,7 @@
 
         <input type="hidden" name="selected_invoices" :value="JSON.stringify(selectedInvoices)">
         <input type="hidden" name="outstanding" :value="outstanding">
+        <p x-show="errors.balance" x-text="errors.balance" class="text-xs text-red-600 mt-0.5"></p>
 
         <!-- Action Buttons -->
         <div class="flex flex-wrap gap-2 justify-between pt-2 border-t">
@@ -205,6 +221,11 @@
 function receiptForm() {
     return {
         customerId: '',
+        partySearch: '',
+        parties: [],
+        filteredParties: [],
+        showPartyDropdown: false,
+        partySelectedIndex: 0,
         paymentDate: new Date().toISOString().split('T')[0],
         invoices: [],
         chequeAmount: 0,
@@ -215,7 +236,24 @@ function receiptForm() {
         interest: 0,
         rtgsType: 'N',
         partyBanks: [],
+        bankSearch: '',
+        banks: [
+            {% for bank in banks %}
+            { _id: '{{ bank._id }}', bank_name: '{{ bank.bank_name }}' },
+            {% endfor %}
+        ],
+        filteredBanks: [],
+        showBankDropdown: false,
+        bankSelectedIndex: 0,
+        selectedBankName: '',
+        selectedBankId: '',
+        partyBankSearch: '',
+        filteredPartyBanks: [],
+        showPartyBankDropdown: false,
+        partyBankSelectedIndex: 0,
+        selectedPartyBank: '',
         focusedIndex: -1,
+        errors: { customer: '', invoices: '', balance: '' },
 
         get selectedInvoices() {
             return this.invoices
@@ -227,7 +265,69 @@ function receiptForm() {
         },
 
         async init() {
+            await this.loadParties();
             await this.loadPartyBanks();
+            this.$nextTick(() => this.$refs.firmField.focus());
+        },
+
+        async loadParties() {
+            try {
+                const res = await fetch('/parties/api/list');
+                if (res.ok) {
+                    const allParties = await res.json();
+                    this.parties = allParties.filter(p => p.party_type === 'customer' || p.party_type === 'both');
+                    this.filteredParties = [...this.parties];
+                }
+            } catch (e) {}
+        },
+
+        filterParties() {
+            const search = (this.partySearch || '').toLowerCase();
+            if (search) {
+                this.filteredParties = this.parties.filter(p => p.name.toLowerCase().includes(search));
+            } else {
+                this.filteredParties = [...this.parties];
+            }
+            this.partySelectedIndex = 0;
+        },
+
+        handlePartyKeydown(e) {
+            if (!this.showPartyDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showPartyDropdown = true;
+                this.filterParties();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showPartyDropdown) return;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.partySelectedIndex = Math.min(this.partySelectedIndex + 1, this.filteredParties.length - 1);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.partySelectedIndex = Math.max(this.partySelectedIndex - 1, 0);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.partySelectedIndex >= 0 && this.partySelectedIndex < this.filteredParties.length) {
+                        this.selectParty(this.filteredParties[this.partySelectedIndex]);
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.showPartyDropdown = false;
+                    break;
+            }
+        },
+
+        selectParty(p) {
+            this.customerId = p._id;
+            this.partySearch = p.name;
+            this.showPartyDropdown = false;
+            this.errors.customer = '';
+            this.loadInvoices();
+            this.$nextTick(() => this.$refs.dateInput.focus());
         },
         
         async loadPartyBanks() {
@@ -239,10 +339,109 @@ function receiptForm() {
             } catch (e) {}
         },
 
+        // Deposit Bank searchable dropdown
+        filterBanks() {
+            const search = (this.bankSearch || '').toLowerCase();
+            if (search) {
+                this.filteredBanks = this.banks.filter(b => b.bank_name.toLowerCase().includes(search));
+            } else {
+                this.filteredBanks = [...this.banks];
+            }
+            this.bankSelectedIndex = 0;
+        },
+
+        handleBankKeydown(e) {
+            if (!this.showBankDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showBankDropdown = true;
+                this.filterBanks();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showBankDropdown) return;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.bankSelectedIndex = Math.min(this.bankSelectedIndex + 1, this.filteredBanks.length - 1);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.bankSelectedIndex = Math.max(this.bankSelectedIndex - 1, 0);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.bankSelectedIndex >= 0 && this.bankSelectedIndex < this.filteredBanks.length) {
+                        this.selectBank(this.filteredBanks[this.bankSelectedIndex]);
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.showBankDropdown = false;
+                    break;
+            }
+        },
+
+        selectBank(b) {
+            this.selectedBankName = b.bank_name;
+            this.selectedBankId = b._id;
+            this.bankSearch = b.bank_name;
+            this.showBankDropdown = false;
+            this.onBankChange();
+            this.$nextTick(() => this.$refs.partyBankInput.focus());
+        },
+
+        // Party Bank searchable dropdown
+        filterPartyBanks() {
+            const search = (this.partyBankSearch || '').toLowerCase();
+            if (search) {
+                this.filteredPartyBanks = this.partyBanks.filter(pb => pb.toLowerCase().includes(search));
+            } else {
+                this.filteredPartyBanks = [...this.partyBanks];
+            }
+            this.partyBankSelectedIndex = 0;
+        },
+
+        handlePartyBankKeydown(e) {
+            if (!this.showPartyBankDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showPartyBankDropdown = true;
+                this.filterPartyBanks();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showPartyBankDropdown) return;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.partyBankSelectedIndex = Math.min(this.partyBankSelectedIndex + 1, this.filteredPartyBanks.length - 1);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.partyBankSelectedIndex = Math.max(this.partyBankSelectedIndex - 1, 0);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.partyBankSelectedIndex >= 0 && this.partyBankSelectedIndex < this.filteredPartyBanks.length) {
+                        this.selectPartyBank(this.filteredPartyBanks[this.partyBankSelectedIndex]);
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.showPartyBankDropdown = false;
+                    break;
+            }
+        },
+
+        selectPartyBank(pb) {
+            this.selectedPartyBank = pb;
+            this.partyBankSearch = pb;
+            this.showPartyBankDropdown = false;
+            this.$nextTick(() => this.$refs.rtgsSelect.focus());
+        },
+
         toggleInvoice(index) {
             const inv = this.invoices[index];
             if (!inv.selected && this.chequeAmount > 0 && this.amountDisburse >= this.chequeAmount) return;
             inv.selected = !inv.selected;
+            this.errors.invoices = '';
             this.calculateBalance();
         },
 
@@ -280,11 +479,18 @@ function receiptForm() {
                     }
                     break;
                 case 'Tab':
+                    // If focused invoice is selected, jump to its amount input
                     if (this.focusedIndex >= 0 && this.invoices[this.focusedIndex].selected) {
                         e.preventDefault();
                         const amtEl = this.$refs.invoiceList?.querySelectorAll('input[type="number"]')[this.focusedIndex];
                         if (amtEl) { amtEl.disabled = false; amtEl.focus(); amtEl.select(); }
                     }
+                    // Otherwise let Tab naturally move focus out of the section
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.focusedIndex = -1;
+                    this.$refs.invoiceSection.blur();
                     break;
                 case 'a':
                 case 'A':
@@ -375,9 +581,7 @@ function receiptForm() {
         },
 
         async onBankChange() {
-            var sel = document.getElementById('salesBankSelect');
-            var opt = sel.options[sel.selectedIndex];
-            var bankId = opt ? opt.getAttribute('data-bank-id') : '';
+            var bankId = this.selectedBankId;
             if (!bankId || this.rtgsType === 'R' || this.rtgsType === 'T') return;
             try {
                 var resp = await fetch('/banking/api/next-cheque?bank_id=' + bankId);
@@ -389,31 +593,43 @@ function receiptForm() {
         },
 
         validateForm(e) {
+            this.errors = { customer: '', invoices: '', balance: '' };
+            let valid = true;
+
             if (!this.customerId) {
-                e.preventDefault();
-                alert('Please select a customer');
-                return false;
+                this.errors.customer = 'Please select a customer';
+                valid = false;
             }
             if (this.selectedInvoices.length === 0) {
-                e.preventDefault();
-                alert('Please select at least one invoice');
-                return false;
+                this.errors.invoices = 'Please select at least one invoice';
+                valid = false;
             }
             if (Math.abs(this.balanceAmount) > 0.01) {
-                e.preventDefault();
-                alert('Balance amount must be zero. Please adjust the cheque amount to match the total disbursement.');
-                return false;
+                this.errors.balance = 'Balance amount must be zero. Adjust cheque amount to match total disbursement.';
+                valid = false;
             }
-            return true;
+
+            if (!valid) {
+                e.preventDefault();
+                // Scroll to first error
+                this.$nextTick(() => {
+                    const el = document.querySelector('.text-red-600:not([style*="display: none"])');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            }
+            return valid;
         },
 
         resetForm() {
             this.customerId = '';
+            this.partySearch = '';
             this.invoices = [];
             this.chequeAmount = 0;
             this.kasar = 0;
             this.interest = 0;
+            this.errors = { customer: '', invoices: '', balance: '' };
             this.calculateBalance();
+            this.$nextTick(() => this.$refs.partyInput.focus());
         }
     }
 }

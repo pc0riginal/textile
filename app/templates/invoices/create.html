@@ -123,7 +123,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Taka</label>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Taka *</label>
                         <input type="number" step="0.01" x-ref="takaInput" x-model="currentItem.total_taka" @keydown.enter.prevent="$refs.metersInput.focus()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
                     </div>
                     <div>
@@ -131,7 +131,7 @@
                         <input type="number" step="0.01" x-ref="metersInput" x-model="currentItem.meters" @keydown.enter.prevent="$refs.rateInput.focus()" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Rate</label>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Rate *</label>
                         <input type="number" step="0.01" x-ref="rateInput" x-model="currentItem.rate" @keydown.enter.prevent="addItem()" @keydown.tab="handleRateTab($event)" class="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-green-500">
                     </div>
                     <div class="col-span-2 md:col-span-1 flex items-end">
@@ -766,6 +766,14 @@ function invoiceForm() {
                 alert('⚠️ Please enter quality and meters');
                 return;
             }
+            if (!this.currentItem.total_taka || parseFloat(this.currentItem.total_taka) <= 0) {
+                alert('⚠️ Please enter taka'); this.$refs.takaInput.focus();
+                return;
+            }
+            if (!this.currentItem.rate || parseFloat(this.currentItem.rate) <= 0) {
+                alert('⚠️ Please enter a valid rate'); this.$refs.rateInput.focus();
+                return;
+            }
             const meters = parseFloat(this.currentItem.meters) || 0;
             const rate = parseFloat(this.currentItem.rate) || 0;
             const amount = meters * rate;
@@ -800,13 +808,13 @@ function invoiceForm() {
         },
         
         handleRateTab(e) {
-            if (this.currentItem.quality && parseFloat(this.currentItem.meters) > 0) {
+            if (this.currentItem.quality && parseFloat(this.currentItem.total_taka) > 0 && parseFloat(this.currentItem.meters) > 0 && parseFloat(this.currentItem.rate) > 0) {
                 this.addItemSilent();
             }
         },
 
         addItemSilent() {
-            if (!this.currentItem.quality || parseFloat(this.currentItem.meters) <= 0) return;
+            if (!this.currentItem.quality || parseFloat(this.currentItem.total_taka) <= 0 || parseFloat(this.currentItem.meters) <= 0 || parseFloat(this.currentItem.rate) <= 0) return;
             const meters = parseFloat(this.currentItem.meters) || 0;
             const rate = parseFloat(this.currentItem.rate) || 0;
             const amount = meters * rate;

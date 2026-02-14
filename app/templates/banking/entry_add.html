@@ -3,7 +3,7 @@
 {% block title %}Add Passbook Entry - Textile ERP{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto space-y-4">
+<div class="max-w-2xl mx-auto space-y-4" x-data="entryForm()">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
             <h1 class="text-xl md:text-2xl font-bold text-gray-900">Add Passbook Entry</h1>
@@ -13,34 +13,36 @@
     </div>
 
     <div class="bg-white rounded-lg shadow-sm border p-4 md:p-6">
-        <form method="POST" action="/banking/entry/add" class="space-y-4" id="entryForm">
+        <form method="POST" action="/banking/entry/add" class="space-y-4" @submit="validateForm($event)">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Bank Account -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Bank Account *</label>
-                    <select name="bank_id" id="bankSelect" required autofocus class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">-- Select Bank --</option>
-                        {% for bank in banks %}
-                        <option value="{{ bank._id }}" {% if bank_id and bank._id|string == bank_id %}selected{% endif %}>
-                            {{ bank.bank_name }} - {{ bank.account_number }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                    <input type="hidden" name="bank_id" x-model="bankId">
+                    <div class="relative" @click.outside="showBankDropdown = false">
+                        <input type="text" x-ref="bankInput" x-model="bankSearch" @input="filterBanks()" @focus="showBankDropdown = true; filterBanks()" @keydown="handleBankKeydown($event)" placeholder="Search bank account..." class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
+                        <div x-show="showBankDropdown" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                            <template x-for="(bank, idx) in filteredBanks" :key="bank._id">
+                                <div @mousedown.prevent @click="selectBank(bank)" :class="idx === bankSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-3 py-2 cursor-pointer text-sm" x-text="bank.bank_name + ' - ' + bank.account_number"></div>
+                            </template>
+                            <div @mousedown.prevent @click="openBankModal()" :class="filteredBanks.length === bankSelectedIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-3 py-2 cursor-pointer text-sm text-green-600 font-medium border-t">+ Add New Bank Account</div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Credit / Debit -->
+                <!-- Type -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Type *</label>
-                    <select name="txn_type" required class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="txnType">
+                    <select name="txn_type" required class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="debit">Debit (Payment Out)</option>
                         <option value="credit">Credit (Money In)</option>
                     </select>
                 </div>
 
-                <!-- Online Y/N -->
+                <!-- Online -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Online *</label>
-                    <select name="is_online" id="isOnline" required class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select name="is_online" x-model="isOnline" @change="updateChequeUI()" required class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="Y">Yes (Online / NEFT / RTGS)</option>
                         <option value="N">No (Cheque)</option>
                     </select>
@@ -55,22 +57,15 @@
                 <!-- Particulars -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Particulars *</label>
-                    <input type="text" name="particulars" required placeholder="e.g. SELF, DGVCL, CREDIT CARD BILL" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" list="commonParticulars">
-                    <datalist id="commonParticulars">
-                        <option value="SELF">
-                        <option value="CASH DEPOSIT">
-                        <option value="CASH WITHDRAWAL">
-                        <option value="INTEREST">
-                        <option value="BANK CHARGES">
-                        <option value="CREDIT CARD BILL">
-                        <option value="ELECTRICITY BILL">
-                        <option value="TELEPHONE BILL">
-                        <option value="INSURANCE">
-                        <option value="RENT">
-                        <option value="SALARY">
-                        <option value="TDS">
-                        <option value="GST PAYMENT">
-                    </datalist>
+                    <input type="hidden" name="particulars" x-model="particularsValue">
+                    <div class="relative" @click.outside="showParticularsDropdown = false">
+                        <input type="text" x-model="particularsSearch" @input="filterParticulars()" @focus="showParticularsDropdown = true; filterParticulars()" @keydown="handleParticularsKeydown($event)" placeholder="Search or type particulars..." class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
+                        <div x-show="showParticularsDropdown && filteredParticulars.length > 0" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                            <template x-for="(item, idx) in filteredParticulars" :key="item">
+                                <div @mousedown.prevent @click="selectParticulars(item)" :class="idx === particularsSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-3 py-2 cursor-pointer text-sm" x-text="item"></div>
+                            </template>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Amount -->
@@ -79,17 +74,17 @@
                     <input type="number" name="amount" required min="0.01" step="0.01" placeholder="0.00" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
 
-                <!-- Invoice No (optional) -->
+                <!-- Invoice No -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Invoice No (if applicable)</label>
                     <input type="text" name="invoice_no" placeholder="Optional" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
 
-                <!-- Cheque No (shown for offline, auto-filled) -->
-                <div id="chequeNoRow">
+                <!-- Cheque No -->
+                <div x-show="isOnline === 'N'" x-cloak>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Cheque No</label>
-                    <input type="text" name="cheque_no" id="chequeNo" placeholder="Enter cheque number" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <p class="text-xs text-gray-500 mt-1" id="chequeHint"></p>
+                    <input type="text" name="cheque_no" x-model="chequeNo" placeholder="Enter cheque number" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1" x-text="chequeHint"></p>
                 </div>
 
                 <!-- Remarks -->
@@ -99,95 +94,241 @@
                 </div>
             </div>
 
-            <!-- Cheque info banner -->
-            <div id="chequeBanner" class="hidden p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-800">
+            <!-- Cheque banner -->
+            <div x-show="isOnline === 'N' && chequeNo" x-cloak class="p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-800">
                 <div class="flex items-center gap-2">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                    <span>Cheque No <strong id="chequeBannerNo"></strong> will be assigned. After saving, you'll be taken to the cheque print page.</span>
+                    <span>Cheque No <strong x-text="'#' + chequeNo"></strong> will be assigned. After saving, you'll be taken to the cheque print page.</span>
                 </div>
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-4 border-t">
                 <a href="/banking/passbook{% if bank_id %}?bank_id={{ bank_id }}{% endif %}" class="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</a>
-                <button type="submit" id="submitBtn" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Add Entry</button>
+                <button type="submit" :class="isOnline === 'N' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'" class="px-6 py-2 text-white rounded-md" x-text="isOnline === 'N' ? 'Add Entry & Print Cheque' : 'Add Entry'"></button>
             </div>
         </form>
+
+        <!-- Add Bank Modal -->
+        <div x-show="showBankModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @keydown.escape.window="showBankModal = false">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4" @click.away="showBankModal = false">
+                <h3 class="text-lg font-semibold mb-4">Add Bank Account</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Account Name *</label>
+                        <input type="text" x-ref="bankNameInput" x-model="newBank.account_name" @input="delete bankErrors.account_name" :class="bankErrors.account_name ? 'border-red-500' : 'border-gray-300'" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span x-show="bankErrors.account_name" x-text="bankErrors.account_name" class="text-xs text-red-600 block"></span>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name *</label>
+                        <input type="text" x-model="newBank.bank_name" @input="delete bankErrors.bank_name" :class="bankErrors.bank_name ? 'border-red-500' : 'border-gray-300'" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span x-show="bankErrors.bank_name" x-text="bankErrors.bank_name" class="text-xs text-red-600 block"></span>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Account Number *</label>
+                        <input type="text" x-model="newBank.account_number" @input="delete bankErrors.account_number" :class="bankErrors.account_number ? 'border-red-500' : 'border-gray-300'" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span x-show="bankErrors.account_number" x-text="bankErrors.account_number" class="text-xs text-red-600 block"></span>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">IFSC Code *</label>
+                        <input type="text" x-model="newBank.ifsc_code" @input="delete bankErrors.ifsc_code" :class="bankErrors.ifsc_code ? 'border-red-500' : 'border-gray-300'" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span x-show="bankErrors.ifsc_code" x-text="bankErrors.ifsc_code" class="text-xs text-red-600 block"></span>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                        <input type="text" x-model="newBank.branch" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="flex justify-end gap-2 pt-4">
+                        <button type="button" @click="showBankModal = false" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
+                        <button type="button" @click="addBank()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Add Bank</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-var isOnlineEl = document.getElementById('isOnline');
-var bankSelectEl = document.getElementById('bankSelect');
-var chequeNoEl = document.getElementById('chequeNo');
-var chequeNoRow = document.getElementById('chequeNoRow');
-var chequeBanner = document.getElementById('chequeBanner');
-var chequeBannerNo = document.getElementById('chequeBannerNo');
-var chequeHint = document.getElementById('chequeHint');
-var submitBtn = document.getElementById('submitBtn');
-var chequeCache = {};
+var _banks = {{ banks | tojson | safe }};
+var _bankId = '{{ bank_id or "" }}';
 
-async function fetchNextCheque(bankId) {
-    if (!bankId) return null;
-    if (chequeCache[bankId] !== undefined) return chequeCache[bankId];
-    try {
-        var resp = await fetch('/banking/api/next-cheque?bank_id=' + bankId);
-        var data = await resp.json();
-        chequeCache[bankId] = data.next_cheque_no;
-        return data.next_cheque_no;
-    } catch(e) { return null; }
-}
+function entryForm() {
+    return {
+        banks: _banks,
+        bankId: _bankId,
+        bankSearch: '',
+        filteredBanks: [],
+        showBankDropdown: false,
+        bankSelectedIndex: 0,
+        showBankModal: false,
+        newBank: { account_name: '', bank_name: '', account_number: '', ifsc_code: '', branch: '' },
+        bankErrors: {},
+        isOnline: 'Y',
+        chequeNo: '',
+        chequeHint: '',
+        chequeCache: {},
+        allParticulars: ['SELF','CASH DEPOSIT','CASH WITHDRAWAL','INTEREST','BANK CHARGES','CREDIT CARD BILL','ELECTRICITY BILL','TELEPHONE BILL','INSURANCE','RENT','SALARY','TDS','GST PAYMENT'],
+        particularsValue: '',
+        particularsSearch: '',
+        filteredParticulars: [],
+        showParticularsDropdown: false,
+        particularsSelectedIndex: 0,
 
-async function updateChequeUI() {
-    var isOffline = isOnlineEl.value === 'N';
-    var bankId = bankSelectEl.value;
+        init() {
+            this.filteredBanks = this.banks.slice();
+            if (this.bankId) {
+                var found = this.banks.find(function(b) { return b._id === _bankId; });
+                if (found) this.bankSearch = found.bank_name + ' - ' + found.account_number;
+            }
+            var self = this;
+            this.$nextTick(function() { self.$refs.bankInput.focus(); });
+        },
 
-    if (isOffline && bankId) {
-        chequeNoRow.style.display = '';
-        chequeNoEl.value = '';
-        chequeHint.textContent = 'Loading...';
-        var nextNo = await fetchNextCheque(bankId);
-        if (nextNo) {
-            chequeNoEl.value = nextNo;
-            chequeHint.textContent = 'Auto-suggested. You can change it.';
-            chequeBanner.classList.remove('hidden');
-            chequeBannerNo.textContent = '#' + nextNo;
-        } else {
-            chequeNoEl.placeholder = 'Enter cheque number';
-            chequeHint.textContent = 'No cheque sequence found. Set starting number in Bank Account edit page, or enter manually.';
-            chequeBanner.classList.add('hidden');
+        filterBanks() {
+            var search = (this.bankSearch || '').toLowerCase();
+            if (search) {
+                this.filteredBanks = this.banks.filter(function(b) {
+                    return b.bank_name.toLowerCase().indexOf(search) !== -1 || b.account_number.toLowerCase().indexOf(search) !== -1;
+                });
+            } else {
+                this.filteredBanks = this.banks.slice();
+            }
+            this.bankSelectedIndex = 0;
+            var self = this;
+            var match = this.banks.find(function(b) { return (b.bank_name + ' - ' + b.account_number) === self.bankSearch; });
+            if (!match) this.bankId = '';
+        },
+
+        handleBankKeydown(e) {
+            if (!this.showBankDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showBankDropdown = true;
+                this.filterBanks();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showBankDropdown) return;
+            var maxIdx = this.filteredBanks.length;
+            if (e.key === 'ArrowDown') { e.preventDefault(); this.bankSelectedIndex = Math.min(this.bankSelectedIndex + 1, maxIdx); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); this.bankSelectedIndex = Math.max(this.bankSelectedIndex - 1, 0); }
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.bankSelectedIndex < this.filteredBanks.length) this.selectBank(this.filteredBanks[this.bankSelectedIndex]);
+                else this.openBankModal();
+            }
+            else if (e.key === 'Escape') { e.preventDefault(); this.showBankDropdown = false; }
+        },
+
+        selectBank(bank) {
+            this.bankId = bank._id;
+            this.bankSearch = bank.bank_name + ' - ' + bank.account_number;
+            this.showBankDropdown = false;
+            this.chequeCache = {};
+            this.updateChequeUI();
+        },
+
+        openBankModal() {
+            this.showBankModal = true;
+            this.showBankDropdown = false;
+            var self = this;
+            this.$nextTick(function() { self.$refs.bankNameInput.focus(); });
+        },
+
+        async addBank() {
+            this.bankErrors = {};
+            if (!this.newBank.account_name.trim()) this.bankErrors.account_name = 'Account name is required';
+            if (!this.newBank.bank_name.trim()) this.bankErrors.bank_name = 'Bank name is required';
+            if (!this.newBank.account_number.trim()) this.bankErrors.account_number = 'Account number is required';
+            if (!this.newBank.ifsc_code.trim()) this.bankErrors.ifsc_code = 'IFSC code is required';
+            if (Object.keys(this.bankErrors).length > 0) return;
+            try {
+                var res = await fetch('/banking/api/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_name: this.newBank.account_name.trim(), bank_name: this.newBank.bank_name.trim(), account_number: this.newBank.account_number.trim(), ifsc_code: this.newBank.ifsc_code.trim(), branch: this.newBank.branch.trim() })
+                });
+                if (res.ok) {
+                    var data = await res.json();
+                    var bank = { _id: data.id, bank_name: data.bank_name, account_number: data.account_number };
+                    this.banks.push(bank);
+                    this.selectBank(bank);
+                    this.newBank = { account_name: '', bank_name: '', account_number: '', ifsc_code: '', branch: '' };
+                    this.showBankModal = false;
+                } else { var err = await res.json(); alert(err.detail || 'Failed to add bank'); }
+            } catch (e) { alert('Error adding bank account'); }
+        },
+
+        filterParticulars() {
+            var search = (this.particularsSearch || '').toLowerCase();
+            if (search) {
+                this.filteredParticulars = this.allParticulars.filter(function(p) { return p.toLowerCase().indexOf(search) !== -1; });
+            } else {
+                this.filteredParticulars = this.allParticulars.slice();
+            }
+            this.particularsSelectedIndex = 0;
+            this.particularsValue = this.particularsSearch;
+        },
+
+        handleParticularsKeydown(e) {
+            if (!this.showParticularsDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showParticularsDropdown = true;
+                this.filterParticulars();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showParticularsDropdown) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); this.particularsSelectedIndex = Math.min(this.particularsSelectedIndex + 1, this.filteredParticulars.length - 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); this.particularsSelectedIndex = Math.max(this.particularsSelectedIndex - 1, 0); }
+            else if (e.key === 'Enter') { e.preventDefault(); if (this.filteredParticulars.length > 0) this.selectParticulars(this.filteredParticulars[this.particularsSelectedIndex]); }
+            else if (e.key === 'Escape') { e.preventDefault(); this.showParticularsDropdown = false; }
+            else if (e.key === 'Tab') { this.showParticularsDropdown = false; if (!this.particularsValue) this.particularsValue = this.particularsSearch; }
+        },
+
+        selectParticulars(item) {
+            this.particularsValue = item;
+            this.particularsSearch = item;
+            this.showParticularsDropdown = false;
+        },
+
+        async updateChequeUI() {
+            if (this.isOnline === 'N' && this.bankId) {
+                this.chequeHint = 'Loading...';
+                this.chequeNo = '';
+                var nextNo = await this.fetchNextCheque(this.bankId);
+                if (nextNo) {
+                    this.chequeNo = nextNo;
+                    this.chequeHint = 'Auto-suggested. You can change it.';
+                } else {
+                    this.chequeHint = 'No cheque sequence found. Enter manually.';
+                }
+            } else if (this.isOnline === 'N') {
+                this.chequeNo = '';
+                this.chequeHint = 'Select a bank account first.';
+            } else {
+                this.chequeNo = '';
+                this.chequeHint = '';
+            }
+        },
+
+        async fetchNextCheque(bankIdVal) {
+            if (!bankIdVal) return null;
+            if (this.chequeCache[bankIdVal] !== undefined) return this.chequeCache[bankIdVal];
+            try {
+                var resp = await fetch('/banking/api/next-cheque?bank_id=' + bankIdVal);
+                var data = await resp.json();
+                this.chequeCache[bankIdVal] = data.next_cheque_no;
+                return data.next_cheque_no;
+            } catch(e) { return null; }
+        },
+
+        validateForm(e) {
+            if (!this.bankId) { e.preventDefault(); this.$refs.bankInput.focus(); return; }
+            if (!this.particularsValue.trim()) this.particularsValue = this.particularsSearch.trim();
+            if (!this.particularsValue.trim()) { e.preventDefault(); return; }
+            var amt = parseFloat(document.querySelector('[name="amount"]').value);
+            if (!amt || amt <= 0) { e.preventDefault(); alert('Please enter a valid amount'); }
         }
-        submitBtn.textContent = 'Add Entry & Print Cheque';
-        submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-        submitBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
-    } else if (isOffline && !bankId) {
-        chequeNoRow.style.display = '';
-        chequeNoEl.value = '';
-        chequeHint.textContent = 'Select a bank account first.';
-        chequeBanner.classList.add('hidden');
-        submitBtn.textContent = 'Add Entry & Print Cheque';
-        submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-        submitBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
-    } else {
-        chequeNoRow.style.display = 'none';
-        chequeNoEl.value = '';
-        chequeBanner.classList.add('hidden');
-        submitBtn.textContent = 'Add Entry';
-        submitBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
-        submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-    }
+    };
 }
-
-isOnlineEl.addEventListener('change', function() { chequeCache = {}; updateChequeUI(); });
-bankSelectEl.addEventListener('change', function() { chequeCache = {}; updateChequeUI(); });
-
-updateChequeUI();
-
-document.getElementById('entryForm').addEventListener('submit', function(e) {
-    var amt = parseFloat(document.querySelector('[name="amount"]').value);
-    if (!amt || amt <= 0) {
-        e.preventDefault();
-        alert('Please enter a valid amount');
-    }
-});
 </script>
 {% endblock %}

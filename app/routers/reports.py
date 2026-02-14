@@ -44,7 +44,7 @@ async def report_generator(request: Request, current_user: dict = Depends(get_cu
         "qualities": qualities,
         "breadcrumbs": [
             {"name": "Dashboard", "url": "/dashboard"},
-            {"name": "Report Generator", "url": "/reports/generator"}
+            {"name": "Purchase Report", "url": "/reports/generator"}
         ]
     })
 

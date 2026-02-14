@@ -23,13 +23,15 @@
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Party Type *</label>
-                        <select name="party_type" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                            <option value="customer" {% if party.party_type == 'customer' %}selected{% endif %}>Customer</option>
-                            <option value="supplier" {% if party.party_type == 'supplier' %}selected{% endif %}>Supplier</option>
-                            <option value="both" {% if party.party_type == 'both' %}selected{% endif %}>Both</option>
-                            <option value="broker" {% if party.party_type == 'broker' %}selected{% endif %}>Broker</option>
-                            <option value="transporter" {% if party.party_type == 'transporter' %}selected{% endif %}>Transporter</option>
-                        </select>
+                        <input type="hidden" name="party_type" x-model="partyType" required>
+                        <div class="relative">
+                            <input type="text" x-model="partyTypeSearch" @input="filterPartyTypes" @focus="showPartyTypeDropdown = true; filterPartyTypes()" @click="showPartyTypeDropdown = true; filterPartyTypes()" @blur="setTimeout(() => showPartyTypeDropdown = false, 200)" @keydown="handlePartyTypeKeydown($event)" placeholder="Search type..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            <div x-show="showPartyTypeDropdown && filteredPartyTypes.length > 0" x-cloak class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-48 overflow-auto">
+                                <template x-for="(pt, idx) in filteredPartyTypes" :key="pt.value">
+                                    <div @mousedown.prevent @click="selectPartyType(pt)" :class="idx === partyTypeSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-3 py-1.5 cursor-pointer text-sm" x-text="pt.label"></div>
+                                </template>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
@@ -173,6 +175,18 @@ function partyForm() {
         name: '{{ party.name }}',
         phone: '{{ party.contact.phone }}',
         gstin: '{{ party.gstin or "" }}',
+        partyType: '{{ party.party_type }}',
+        partyTypeSearch: '{{ {"customer":"Customer","supplier":"Supplier","both":"Both","broker":"Broker","transporter":"Transporter"}.get(party.party_type, "") }}',
+        partyTypes: [
+            {value: 'customer', label: 'Customer'},
+            {value: 'supplier', label: 'Supplier'},
+            {value: 'both', label: 'Both'},
+            {value: 'broker', label: 'Broker'},
+            {value: 'transporter', label: 'Transporter'}
+        ],
+        filteredPartyTypes: [],
+        showPartyTypeDropdown: false,
+        partyTypeSelectedIndex: 0,
         deliveryPincode: '{{ party.delivery_pincode or "" }}',
         brokerId: '{{ party.broker_id or "" }}',
         brokerage: {{ party.brokerage or 0 }},
@@ -189,6 +203,52 @@ function partyForm() {
         nameError: '',
         brokerNameError: '',
         brokerPhoneError: '',
+
+        filterPartyTypes() {
+            const search = (this.partyTypeSearch || '').toLowerCase();
+            if (search) {
+                this.filteredPartyTypes = this.partyTypes.filter(pt => pt.label.toLowerCase().includes(search));
+            } else {
+                this.filteredPartyTypes = [...this.partyTypes];
+            }
+            this.partyTypeSelectedIndex = 0;
+        },
+
+        handlePartyTypeKeydown(e) {
+            if (!this.showPartyTypeDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showPartyTypeDropdown = true;
+                this.filterPartyTypes();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showPartyTypeDropdown) return;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.partyTypeSelectedIndex = Math.min(this.partyTypeSelectedIndex + 1, this.filteredPartyTypes.length - 1);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.partyTypeSelectedIndex = Math.max(this.partyTypeSelectedIndex - 1, 0);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.partyTypeSelectedIndex >= 0 && this.partyTypeSelectedIndex < this.filteredPartyTypes.length) {
+                        this.selectPartyType(this.filteredPartyTypes[this.partyTypeSelectedIndex]);
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.showPartyTypeDropdown = false;
+                    break;
+            }
+        },
+
+        selectPartyType(pt) {
+            this.partyType = pt.value;
+            this.partyTypeSearch = pt.label;
+            this.showPartyTypeDropdown = false;
+        },
 
         validateMobile() {
             if (this.phone && !/^\d{10}$/.test(this.phone)) {

@@ -33,14 +33,15 @@
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Party Type *</label>
-                        <select name="party_type" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select Type</option>
-                            <option value="customer" {% if default_type == 'customer' %}selected{% endif %}>Customer</option>
-                            <option value="supplier" {% if default_type == 'supplier' %}selected{% endif %}>Supplier</option>
-                            <option value="both" {% if default_type == 'both' %}selected{% endif %}>Both</option>
-                            <option value="broker" {% if default_type == 'broker' %}selected{% endif %}>Broker</option>
-                            <option value="transporter" {% if default_type == 'transporter' %}selected{% endif %}>Transporter</option>
-                        </select>
+                        <input type="hidden" name="party_type" x-model="partyType" required>
+                        <div class="relative">
+                            <input type="text" x-model="partyTypeSearch" @input="filterPartyTypes" @focus="showPartyTypeDropdown = true; filterPartyTypes()" @click="showPartyTypeDropdown = true; filterPartyTypes()" @blur="setTimeout(() => showPartyTypeDropdown = false, 200)" @keydown="handlePartyTypeKeydown($event)" placeholder="Search type..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            <div x-show="showPartyTypeDropdown && filteredPartyTypes.length > 0" x-cloak class="absolute z-50 w-full mt-1 bg-white border rounded shadow-lg max-h-48 overflow-auto">
+                                <template x-for="(pt, idx) in filteredPartyTypes" :key="pt.value">
+                                    <div @mousedown.prevent @click="selectPartyType(pt)" :class="idx === partyTypeSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-3 py-1.5 cursor-pointer text-sm" x-text="pt.label"></div>
+                                </template>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
@@ -50,23 +51,23 @@
 
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Delivery Address</label>
-                        <textarea name="delivery_address" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
+                        <textarea name="delivery_address" x-model="deliveryAddress" @input="syncToOffice" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">City (Delivery)</label>
-                        <input type="text" name="delivery_city" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <input type="text" name="delivery_city" x-model="deliveryCity" @input="syncToOffice" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Pin Code</label>
-                        <input type="text" name="delivery_pincode" x-model="deliveryPincode" @input="validatePincode" maxlength="6" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <input type="text" name="delivery_pincode" x-model="deliveryPincode" @input="validatePincode; syncToOffice" maxlength="6" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                         <p x-show="pincodeError" class="text-xs text-red-600 mt-1" x-text="pincodeError"></p>
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">State</label>
-                        <select name="delivery_state" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <select name="delivery_state" x-model="deliveryState" @change="syncToOffice" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                             {% for state in indian_states %}
                             <option value="{{ state }}" {% if state == 'GUJARAT' %}selected{% endif %}>{{ state }}</option>
                             {% endfor %}
@@ -111,22 +112,22 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Office Address</label>
-                        <textarea name="office_address" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
+                        <textarea name="office_address" x-model="officeAddress" @input="officeTouched = true" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">City (Office)</label>
-                        <input type="text" name="office_city" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <input type="text" name="office_city" x-model="officeCity" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Pin Code (Office)</label>
-                        <input type="text" name="office_pincode" maxlength="6" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <input type="text" name="office_pincode" x-model="officePincode" maxlength="6" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">State (Office)</label>
-                        <select name="office_state" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <select name="office_state" x-model="officeState" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                             {% for state in indian_states %}
                             <option value="{{ state }}" {% if state == 'GUJARAT' %}selected{% endif %}>{{ state }}</option>
                             {% endfor %}
@@ -203,9 +204,29 @@ function partyForm() {
     return {
         name: '',
         nameError: '',
+        partyType: '{{ default_type or "" }}',
+        partyTypeSearch: '{{ {"customer":"Customer","supplier":"Supplier","both":"Both","broker":"Broker","transporter":"Transporter"}.get(default_type, "") }}',
+        partyTypes: [
+            {value: 'customer', label: 'Customer'},
+            {value: 'supplier', label: 'Supplier'},
+            {value: 'both', label: 'Both'},
+            {value: 'broker', label: 'Broker'},
+            {value: 'transporter', label: 'Transporter'}
+        ],
+        filteredPartyTypes: [],
+        showPartyTypeDropdown: false,
+        partyTypeSelectedIndex: 0,
         phone: '',
         gstin: '',
+        deliveryAddress: '',
+        deliveryCity: 'Surat',
         deliveryPincode: '',
+        deliveryState: 'GUJARAT',
+        officeAddress: '',
+        officeCity: 'Surat',
+        officePincode: '',
+        officeState: 'GUJARAT',
+        officeTouched: false,
         brokerId: '',
         brokerage: 0,
         dharaDay: '',
@@ -220,6 +241,52 @@ function partyForm() {
         newBrokerPhone: '',
         brokerNameError: '',
         brokerPhoneError: '',
+
+        filterPartyTypes() {
+            const search = (this.partyTypeSearch || '').toLowerCase();
+            if (search) {
+                this.filteredPartyTypes = this.partyTypes.filter(pt => pt.label.toLowerCase().includes(search));
+            } else {
+                this.filteredPartyTypes = [...this.partyTypes];
+            }
+            this.partyTypeSelectedIndex = 0;
+        },
+
+        handlePartyTypeKeydown(e) {
+            if (!this.showPartyTypeDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showPartyTypeDropdown = true;
+                this.filterPartyTypes();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showPartyTypeDropdown) return;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.partyTypeSelectedIndex = Math.min(this.partyTypeSelectedIndex + 1, this.filteredPartyTypes.length - 1);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.partyTypeSelectedIndex = Math.max(this.partyTypeSelectedIndex - 1, 0);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.partyTypeSelectedIndex >= 0 && this.partyTypeSelectedIndex < this.filteredPartyTypes.length) {
+                        this.selectPartyType(this.filteredPartyTypes[this.partyTypeSelectedIndex]);
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.showPartyTypeDropdown = false;
+                    break;
+            }
+        },
+
+        selectPartyType(pt) {
+            this.partyType = pt.value;
+            this.partyTypeSearch = pt.label;
+            this.showPartyTypeDropdown = false;
+        },
 
         validateMobile() {
             if (this.phone && !/^\d{10}$/.test(this.phone)) {
@@ -258,6 +325,15 @@ function partyForm() {
                 this.interestError = 'Interest must be a numeric value';
             } else {
                 this.interestError = '';
+            }
+        },
+
+        syncToOffice() {
+            if (!this.officeTouched) {
+                this.officeAddress = this.deliveryAddress;
+                this.officeCity = this.deliveryCity;
+                this.officePincode = this.deliveryPincode;
+                this.officeState = this.deliveryState;
             }
         },
 

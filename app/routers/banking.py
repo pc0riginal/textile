@@ -385,7 +385,8 @@ async def passbook(context: dict = Depends(get_template_context), bank_id: str =
 async def passbook_entry_form(context: dict = Depends(get_template_context), bank_id: str = None):
     current_company = context["current_company"]
     bank_collection = await get_collection("bank_accounts")
-    banks = await bank_collection.find({"company_id": current_company["_id"]}).to_list(None)
+    banks_raw = await bank_collection.find({"company_id": current_company["_id"]}).to_list(None)
+    banks = [{"_id": str(b["_id"]), "bank_name": b.get("bank_name", ""), "account_number": b.get("account_number", "")} for b in banks_raw]
 
     selected_bank = None
     if bank_id:
@@ -474,7 +475,7 @@ async def passbook_entry_create(
         })
         return RedirectResponse(url=f"/banking/cheque/print?{params}", status_code=303)
 
-    return RedirectResponse(url=f"/banking/passbook/entry?bank_id={bank_id}", status_code=303)
+    return RedirectResponse(url=f"/banking/entry/add?bank_id={bank_id}", status_code=303)
 
 @router.delete("/entry/{entry_id}")
 async def passbook_entry_delete(

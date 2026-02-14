@@ -113,7 +113,7 @@ async def create_party(
     office_city: str = Form(None),
     office_pincode: str = Form(None),
     office_state: str = Form("GUJARAT"),
-    phone: str = Form(...),
+    phone: str = Form(""),
     email: str = Form(None),
     contact_person: str = Form(None),
     broker_id: str = Form(None),
@@ -129,6 +129,7 @@ async def create_party(
         party_code = f"P{count + 1:04d}"
     
     party_data = {
+        "company_id": ObjectId(current_company["_id"]),
         "name": name,
         "party_type": party_type,
         "party_code": party_code,

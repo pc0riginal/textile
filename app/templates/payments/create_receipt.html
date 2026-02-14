@@ -22,16 +22,20 @@
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Company</label>
-                    <input type="text" value="{{ current_company.name }}" readonly class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-50">
+                    <input type="text" x-ref="companyField" value="{{ current_company.name }}" readonly class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-50">
                 </div>
                 <div>
                     <label for="supplier_id" class="block text-xs font-medium text-gray-700 mb-1">Supplier *</label>
-                    <select id="supplier_id" name="supplier_id" required autofocus @change="checkSupplierInvoices" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500">
-                        <option value="">Select Supplier</option>
-                        {% for supplier in suppliers %}
-                        <option value="{{ supplier._id }}">{{ supplier.name }}</option>
-                        {% endfor %}
-                    </select>
+                    <input type="hidden" name="supplier_id" x-model="supplierId">
+                    <div class="relative" @click.outside="showSupplierDropdown = false">
+                        <input type="text" x-ref="supplierInput" x-model="supplierSearch" @input="filterSuppliers" @focus="showSupplierDropdown = true; filterSuppliers()" @keydown="handleSupplierKeydown($event)" placeholder="Search supplier..." class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" autocomplete="off">
+                        <div x-show="showSupplierDropdown && (filteredSuppliers.length > 0 || supplierSearch.length > 0)" x-cloak class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                            <template x-for="(s, idx) in filteredSuppliers" :key="s._id">
+                                <div @mousedown.prevent @click="selectSupplier(s)" :class="idx === supplierSelectedIndex ? 'bg-blue-100' : 'hover:bg-blue-50'" class="px-2 py-1.5 cursor-pointer text-sm" x-text="s.name"></div>
+                            </template>
+                            <div @mousedown.prevent @click="openSupplierModal()" :class="filteredSuppliers.length === supplierSelectedIndex ? 'bg-green-100' : 'hover:bg-green-50'" class="px-2 py-1.5 cursor-pointer text-sm text-green-600 font-medium border-t">+ Add New Supplier</div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label for="payment_type" class="block text-xs font-medium text-gray-700 mb-1">Payment Type *</label>
@@ -234,6 +238,42 @@
                 </div>
             </div>
         </div>
+
+        <!-- Supplier Modal -->
+        <div x-show="showSupplierModal" x-effect="if(showSupplierModal) { supplierErrors = {}; $nextTick(() => $refs.supplierNameInput.focus()); }" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4" @click.away="showSupplierModal = false">
+                <h3 class="text-lg font-semibold mb-4">Add New Supplier</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Supplier Name *</label>
+                        <input type="text" x-ref="supplierNameInput" x-model="newSupplier.name" @input="delete supplierErrors.name"
+                               :class="supplierErrors.name ? 'border-red-500' : 'border-gray-300'"
+                               class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span x-show="supplierErrors.name" x-text="supplierErrors.name" class="text-xs text-red-600 block"></span>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                        <input type="text" x-model="newSupplier.phone" @input="delete supplierErrors.phone"
+                               :class="supplierErrors.phone ? 'border-red-500' : 'border-gray-300'"
+                               class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span x-show="supplierErrors.phone" x-text="supplierErrors.phone" class="text-xs text-red-600 block"></span>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">GSTIN</label>
+                        <input type="text" x-model="newSupplier.gstin" @input="delete supplierErrors.gstin"
+                               :class="supplierErrors.gstin ? 'border-red-500' : 'border-gray-300'"
+                               class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span x-show="supplierErrors.gstin" x-text="supplierErrors.gstin" class="text-xs text-red-600 block"></span>
+                    </div>
+                    <div class="flex justify-end gap-2 pt-4">
+                        <button type="button" @click="showSupplierModal = false"
+                                class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
+                        <button type="button" @click="addSupplier"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Add Supplier</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -251,6 +291,15 @@ function paymentForm() {
         paymentType: 'cheque',
         showBankModal: false,
         showNoInvoiceModal: false,
+        suppliers: {{ suppliers | tojson }},
+        supplierId: '',
+        supplierSearch: '',
+        filteredSuppliers: [],
+        showSupplierDropdown: false,
+        supplierSelectedIndex: 0,
+        showSupplierModal: false,
+        newSupplier: { name: '', phone: '', gstin: '' },
+        supplierErrors: {},
         banks: {{ banks | tojson }},
         bankSearch: '',
         filteredBanks: [],
@@ -268,6 +317,95 @@ function paymentForm() {
         
         init() {
             this.filteredBanks = this.banks;
+            this.filteredSuppliers = [...this.suppliers];
+            this.$nextTick(() => this.$refs.companyField.focus());
+        },
+
+        filterSuppliers() {
+            const search = (this.supplierSearch || '').toLowerCase();
+            this.filteredSuppliers = search
+                ? this.suppliers.filter(s => s.name.toLowerCase().includes(search))
+                : [...this.suppliers];
+            this.supplierSelectedIndex = 0;
+        },
+
+        handleSupplierKeydown(e) {
+            if (!this.showSupplierDropdown && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+                this.showSupplierDropdown = true;
+                this.filterSuppliers();
+                e.preventDefault();
+                return;
+            }
+            if (!this.showSupplierDropdown) return;
+            const maxIndex = this.filteredSuppliers.length;
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    this.supplierSelectedIndex = Math.min(this.supplierSelectedIndex + 1, maxIndex);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    this.supplierSelectedIndex = Math.max(this.supplierSelectedIndex - 1, 0);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (this.supplierSelectedIndex < this.filteredSuppliers.length) {
+                        this.selectSupplier(this.filteredSuppliers[this.supplierSelectedIndex]);
+                    } else {
+                        this.openSupplierModal();
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.showSupplierDropdown = false;
+                    break;
+            }
+        },
+
+        selectSupplier(s) {
+            this.supplierId = s._id;
+            this.supplierSearch = s.name;
+            this.showSupplierDropdown = false;
+            this.checkSupplierInvoices();
+        },
+
+        openSupplierModal() {
+            this.showSupplierModal = true;
+            this.showSupplierDropdown = false;
+        },
+
+        async addSupplier() {
+            this.supplierErrors = {};
+            if (!this.newSupplier.name || !this.newSupplier.name.trim()) this.supplierErrors.name = 'Supplier name is required';
+            if (this.newSupplier.phone && !/^\d{10}$/.test(this.newSupplier.phone.trim())) this.supplierErrors.phone = 'Mobile must be 10 digits';
+            if (this.newSupplier.gstin && !/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/i.test(this.newSupplier.gstin.trim())) this.supplierErrors.gstin = 'Invalid GSTIN format';
+            if (Object.keys(this.supplierErrors).length > 0) return;
+
+            try {
+                const res = await fetch('/parties/api/quick-add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: this.newSupplier.name.trim(),
+                        party_type: 'supplier',
+                        phone: this.newSupplier.phone.trim(),
+                        gstin: this.newSupplier.gstin.trim()
+                    })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const supplier = { _id: data.id, name: data.name };
+                    this.suppliers.push(supplier);
+                    this.selectSupplier(supplier);
+                    this.newSupplier = { name: '', phone: '', gstin: '' };
+                    this.showSupplierModal = false;
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || 'Failed to add supplier');
+                }
+            } catch (e) {
+                alert('Error adding supplier');
+            }
         },
         
         searchBanks() {
@@ -329,7 +467,7 @@ function paymentForm() {
         },
         
         async checkSupplierInvoices() {
-            const supplierId = document.getElementById('supplier_id').value;
+            const supplierId = this.supplierId;
             if (!supplierId) {
                 this.invoices = [];
                 return;

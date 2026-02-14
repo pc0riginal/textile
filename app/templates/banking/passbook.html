@@ -31,7 +31,7 @@
         <!-- Bank selector -->
         <div class="mb-4 no-print">
             <label for="bank_select" class="block text-xs font-medium text-gray-700 mb-1">Select Bank Account</label>
-            <select id="bank_select" onchange="window.location.href='/banking/passbook?bank_id=' + this.value" class="w-full md:w-96 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500">
+            <select id="bank_select" onchange="window.location.href='/banking/passbook?bank_id=' + this.value" autofocus class="w-full md:w-96 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500">
                 <option value="">-- Select Bank --</option>
                 {% for bank in banks %}
                 <option value="{{ bank._id }}" {% if bank_id and bank._id|string == bank_id %}selected{% endif %}>

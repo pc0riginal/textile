@@ -251,7 +251,9 @@ async def create_receipt_form(
     
     for supplier in suppliers:
         supplier["_id"] = str(supplier["_id"])
-        supplier["company_id"] = str(supplier["company_id"])
+        supplier["company_id"] = str(supplier["company_id"]) if supplier.get("company_id") else ""
+        if supplier.get("broker_id"):
+            supplier["broker_id"] = str(supplier["broker_id"])
         if "created_at" in supplier:
             supplier["created_at"] = supplier["created_at"].isoformat() if supplier["created_at"] else None
         if "updated_at" in supplier:
