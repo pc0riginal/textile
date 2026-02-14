@@ -733,6 +733,7 @@ function invoiceForm() {
                     this.selectQuality(data.name);
                     this.showQualityModal = false;
                     this.newQuality = {name: '', display_name: '', quality_main_group: '', yarn_used: ''};
+                    this.$nextTick(() => this.$refs.qualityInput.focus());
                 } else {
                     const err = await res.json().catch(() => null);
                     alert(err?.detail || 'Failed to add quality');

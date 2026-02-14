@@ -426,6 +426,7 @@ function challanForm() {
             if (!q) { alert('Please enter quality name'); return; }
             await this.addNewQuality(q);
             this.selectQuality(q);
+            this.$nextTick(() => this.$refs.qualityInput.focus());
         },
         async addNewQuality(quality) {
             if (!quality || this.qualities.includes(quality)) return;
