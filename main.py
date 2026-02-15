@@ -10,6 +10,7 @@ from app.database import connect_to_mongo, close_mongo_connection
 from app.indexes import ensure_indexes
 from app.routers import auth, dashboard, companies, parties, purchase_invoices, invoices, payments, user, settings, banking, reports, qualities
 from app.routers import license as license_router
+from app.routers import backup as backup_router
 from app.services.license_service import check_license_status
 from config import settings as app_settings
 
@@ -82,6 +83,7 @@ app.include_router(settings.router, prefix="", tags=["Settings"])
 app.include_router(banking.router, prefix="/banking", tags=["Banking"])
 app.include_router(reports.router, prefix="", tags=["Reports"])
 app.include_router(qualities.router, tags=["Qualities"])
+app.include_router(backup_router.router, prefix="/backup", tags=["Backup"])
 
 # Debug router — only in development
 import os

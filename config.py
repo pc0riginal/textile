@@ -16,7 +16,9 @@ class Settings:
     UPLOAD_DIR: str = config("UPLOAD_DIR", default="app/static/uploads")
     ALLOWED_ORIGINS: str = config("ALLOWED_ORIGINS", default="http://localhost:8000")
     ADMIN_SECRET: str = config("ADMIN_SECRET", default="")
-    LICENSE_SIGN_SECRET: str = config("LICENSE_SIGN_SECRET", default="change-me-in-production")
+    LICENSE_SIGN_SECRET: str = config("LICENSE_SIGN_SECRET", default="")
+    GOOGLE_CLIENT_ID: str = config("GOOGLE_CLIENT_ID", default="")
+    GOOGLE_CLIENT_SECRET: str = config("GOOGLE_CLIENT_SECRET", default="")
 
     def __init__(self):
         if not self.SECRET_KEY:
