@@ -4,13 +4,20 @@ from fastapi.responses import RedirectResponse, JSONResponse
 
 from app import TEMPLATES_DIR
 from app.dependencies import get_current_user
-from app.services.license_service import (
-    activate_license, check_license_status, get_license,
-    renew_license, register_device, PLANS,
-    extend_trial, suspend_license, reactivate_license,
-    change_plan, reset_devices, get_admin_log,
-    generate_license_key, create_backup, restore_backup, list_backups,
-)
+async def activate(request: Request, license_key: str = Form(...)):
+    """Activate a license key."""
+    try:
+        result = await activate_license(license_key, activated_by="setup")
+        return RedirectResponse(url="/", status_code=303)
+    except ValueError as e:
+        license_status = await check_license_status()
+        machine_id = get_machine_id()
+        return templates.TemplateResponse("license/activate.html", {
+            "request": request,
+            "license_status": license_status,
+            "machine_id": machine_id,
+            "error": str(e),
+        })
 from app.enums import PlanType
 from config import settings as app_settings
 
@@ -38,13 +45,14 @@ async def pricing_page(request: Request):
     })
 
 
-@router.get("/activate")
 async def activate_page(request: Request):
     """License activation page — shown on first setup or when license is missing."""
     license_status = await check_license_status()
+    machine_id = get_machine_id()
     return templates.TemplateResponse("license/activate.html", {
         "request": request,
         "license_status": license_status,
+        "machine_id": machine_id,
     })
 
 
@@ -257,19 +265,19 @@ async def admin_action_log(request: Request):
     return JSONResponse(content=log)
 
 
-@router.post("/admin/generate-key")
 async def admin_generate_key(
     request: Request,
     plan: str = Form(...),
     customer_name: str = Form(...),
     customer_email: str = Form(""),
     customer_phone: str = Form(""),
+    machine_id: str = Form(""),
 ):
-    """Generate a license key for a customer."""
+    """Generate a license key for a customer, optionally bound to their machine."""
     verify_admin_secret(request)
     if plan not in [p.value for p in PlanType]:
         raise HTTPException(status_code=400, detail=f"Unknown plan: {plan}")
-    key = generate_license_key(plan, customer_name, customer_email, customer_phone)
+    key = generate_license_key(plan, customer_name, customer_email, customer_phone, machine_id)
     return JSONResponse(content={"success": True, "license_key": key})
 
 

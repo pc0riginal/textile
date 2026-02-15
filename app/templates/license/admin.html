@@ -95,6 +95,11 @@
                     <label class="block text-xs text-gray-500 mb-1">Phone (optional)</label>
                     <input type="text" name="customer_phone" placeholder="phone" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-gray-500 mb-1">Machine ID (from customer's activation screen)</label>
+                    <input type="text" name="machine_id" placeholder="Paste customer's machine ID here — key will only work on that device" class="w-full px-3 py-2 border border-gray-300 rounded-md text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-gray-400 mt-1">Leave empty to generate a key without device binding (not recommended)</p>
+                </div>
             </div>
             <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700">Generate Key</button>
         </form>
