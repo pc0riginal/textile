@@ -136,19 +136,56 @@ async def api_save_settings(request: Request, current_user: dict = Depends(get_c
     })
 
 
+@router.post("/api/google-save-creds")
+async def api_google_save_creds(request: Request, current_user: dict = Depends(get_current_user)):
+    """Save Google OAuth client ID/secret to DB (entered by user in UI)."""
+    try:
+        body = await request.json()
+        client_id = body.get("client_id", "").strip()
+        client_secret = body.get("client_secret", "").strip()
+
+        if not client_id or not client_secret:
+            raise HTTPException(status_code=400, detail="Client ID and Client Secret are required")
+
+        # Save to backup settings — preserve existing fields
+        existing = await get_backup_settings()
+        google_credentials = (existing.get("google_credentials") or {}) if existing else {}
+        google_credentials["client_id"] = client_id
+        google_credentials["client_secret"] = client_secret
+
+        await save_backup_settings(
+            mode=existing.get("mode", "online") if existing else "online",
+            offline_path=existing.get("offline_path", "") if existing else "",
+            google_credentials=google_credentials,
+            google_folder_id=existing.get("google_folder_id", "") if existing else "",
+        )
+
+        return JSONResponse(content={"success": True})
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to save credentials: {str(e)}")
+
+
 @router.get("/api/google-auth-start")
 async def google_auth_start(request: Request):
     """Redirect user to Google OAuth consent screen.
 
-    Uses GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET from config (embedded by developer).
-    Customer just clicks the button — no credentials needed from them.
+    Reads client_id/client_secret from DB (saved via google-save-creds).
+    Falls back to config.py values if DB has none.
     """
-    client_id = app_settings.GOOGLE_CLIENT_ID
-    client_secret = app_settings.GOOGLE_CLIENT_SECRET
+    # Try DB first
+    settings = await get_backup_settings()
+    creds_data = settings.get("google_credentials", {}) if settings else {}
+    client_id = creds_data.get("client_id", "") or app_settings.GOOGLE_CLIENT_ID
+    client_secret = creds_data.get("client_secret", "") or app_settings.GOOGLE_CLIENT_SECRET
+
     if not client_id or not client_secret:
         raise HTTPException(
             status_code=500,
-            detail="Google OAuth not configured. Contact your software provider."
+            detail="Google OAuth not configured. Please enter Client ID and Client Secret in backup settings."
         )
 
     try:
@@ -191,8 +228,11 @@ async def google_auth_callback(request: Request):
     if not code:
         return RedirectResponse(url="/backup?google_auth_error=no_code")
 
-    client_id = app_settings.GOOGLE_CLIENT_ID
-    client_secret = app_settings.GOOGLE_CLIENT_SECRET
+    # Read client creds from DB first, fallback to config
+    settings = await get_backup_settings()
+    creds_data = (settings.get("google_credentials") or {}) if settings else {}
+    client_id = creds_data.get("client_id", "") or app_settings.GOOGLE_CLIENT_ID
+    client_secret = creds_data.get("client_secret", "") or app_settings.GOOGLE_CLIENT_SECRET
 
     try:
         from google_auth_oauthlib.flow import Flow
@@ -230,6 +270,9 @@ async def google_auth_callback(request: Request):
         "scopes": list(creds.scopes) if creds.scopes else [],
         "expiry": creds.expiry.isoformat() if creds.expiry else None,
     }
+
+    import logging
+    logging.getLogger("backup").warning(f"OAuth callback: saving tokens, has_token={bool(creds.token)}, has_refresh={bool(creds.refresh_token)}")
 
     # Save credentials into existing settings or create new
     existing = await get_backup_settings()
