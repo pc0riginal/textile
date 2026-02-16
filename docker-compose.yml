@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: textile-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=textile_erp
+
+  textile-erp:
+    build: .
+    container_name: textile-erp-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - DATABASE_NAME=textile_erp
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=480
+      - ALLOWED_ORIGINS=http://localhost:8000
+      - ENV=production
+    volumes:
+      - ./app/static/uploads:/app/app/static/uploads
+      - ./logs:/app/logs
+
+volumes:
+  mongodb_data:
