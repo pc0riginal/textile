@@ -197,11 +197,44 @@ async def _upload_to_google_drive(
 
     service = build("drive", "v3", credentials=creds)
 
-    file_metadata = {"name": filename, "mimeType": "application/zip"}
+    # Ensure the backup folder exists on Google Drive
     folder_id = settings.get("google_folder_id")
-    if folder_id:
-        file_metadata["parents"] = [folder_id]
+    folder_name = "Textile ERP Backups"
 
+    if folder_id:
+        # Verify the folder still exists (may have been deleted)
+        try:
+            service.files().get(fileId=folder_id, fields="id,trashed").execute()
+        except Exception:
+            folder_id = None  # Folder gone — recreate below
+
+    if not folder_id:
+        # Search for existing folder by name first
+        query = (
+            f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder'"
+            " and trashed=false"
+        )
+        results = service.files().list(q=query, fields="files(id)", pageSize=1).execute()
+        existing = results.get("files", [])
+        if existing:
+            folder_id = existing[0]["id"]
+        else:
+            # Create the folder
+            folder_meta = {
+                "name": folder_name,
+                "mimeType": "application/vnd.google-apps.folder",
+            }
+            folder = service.files().create(body=folder_meta, fields="id").execute()
+            folder_id = folder["id"]
+
+        # Persist folder_id so we don't search/create every time
+        col = await get_collection("app_settings")
+        await col.update_one(
+            {"_id": BACKUP_SETTINGS_ID},
+            {"$set": {"google_folder_id": folder_id}},
+        )
+
+    file_metadata = {"name": filename, "mimeType": "application/zip", "parents": [folder_id]}
     media = MediaFileUpload(file_path, mimetype="application/zip", resumable=True)
     file = service.files().create(body=file_metadata, media_body=media, fields="id").execute()
 
@@ -242,8 +275,24 @@ async def _list_google_drive_backups(settings: Dict) -> List[Dict]:
 
     service = build("drive", "v3", credentials=creds)
 
-    query = "name contains 'backup_' and mimeType='application/zip' and trashed=false"
+    # Verify folder still exists; clear stale ID if deleted
     folder_id = settings.get("google_folder_id")
+    if folder_id:
+        try:
+            f_check = service.files().get(fileId=folder_id, fields="id,trashed").execute()
+            if f_check.get("trashed"):
+                folder_id = None
+        except Exception:
+            folder_id = None
+
+        if not folder_id:
+            col = await get_collection("app_settings")
+            await col.update_one(
+                {"_id": BACKUP_SETTINGS_ID},
+                {"$unset": {"google_folder_id": ""}},
+            )
+
+    query = "name contains 'backup_' and mimeType='application/zip' and trashed=false"
     if folder_id:
         query += f" and '{folder_id}' in parents"
 
