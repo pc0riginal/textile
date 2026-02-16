@@ -7,9 +7,15 @@ import sys
 if getattr(sys, "frozen", False):
     _log_dir = os.path.join(os.path.dirname(sys.executable), "logs")
 else:
-    _log_dir = "logs"
+    # Use /tmp for serverless environments (Vercel, AWS Lambda, etc.)
+    _log_dir = "/tmp/logs" if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") else "logs"
 
-os.makedirs(_log_dir, exist_ok=True)
+try:
+    os.makedirs(_log_dir, exist_ok=True)
+except OSError:
+    # Fallback to /tmp if logs directory creation fails
+    _log_dir = "/tmp/logs"
+    os.makedirs(_log_dir, exist_ok=True)
 
 logger = logging.getLogger("textile_app")
 logger.setLevel(logging.INFO)
