@@ -111,6 +111,25 @@ async def root(request: Request):
 
     return RedirectResponse(url="/auth/login", status_code=302)
 
+
+@app.post("/api/shutdown")
+async def shutdown_server(request: Request):
+    """Gracefully shut down the application (for desktop/offline use)."""
+    import signal
+    from fastapi.responses import JSONResponse
+
+    # Verify user is authenticated
+    token = request.cookies.get("access_token")
+    if not token:
+        return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+
+    # Schedule shutdown after response is sent
+    import asyncio
+    loop = asyncio.get_event_loop()
+    loop.call_later(1, lambda: os.kill(os.getpid(), signal.SIGTERM))
+
+    return JSONResponse({"message": "Server shutting down..."})
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

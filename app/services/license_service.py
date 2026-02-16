@@ -1,6 +1,5 @@
 """License management — validates plan, expiry, and device limits per instance."""
 import hashlib
-import hmac
 import json
 import base64
 import platform
@@ -17,27 +16,47 @@ from app.database import get_collection
 from app.enums import PlanType, LicenseStatus
 from app.logger import logger
 
-# ── Secret used to sign license keys ──────────────────────────────────────────
-# Obfuscated to avoid plain-text exposure in distributed builds.
-# The actual secret is derived at runtime from scattered parts.
+# ── RSA keys for license signing ──────────────────────────────────────────────
+# Only the PUBLIC key is embedded in the distributed app.
+# The PRIVATE key stays on the developer's admin machine (in .env or separate file).
+# Even with full source access, nobody can forge keys without the private key.
+
 from config import settings as app_settings
 
-def _get_sign_secret():
-    """Derive the signing secret at runtime. Not stored as a plain string."""
-    # Parts of the secret split and reversed to avoid plain-text grep
-    _p = [
-        b'\x6a\x49\x66\x55\x32\x4d\x38\x4c',  # jIfU2M8L
-        b'\x2d\x54\x4b\x6d\x6d\x56\x34\x4d',  # -TKmmV4M
-        b'\x79\x34\x44\x6b\x47\x66\x5a\x42',  # y4DkGfZB
-        b'\x65\x73\x39\x69\x50\x50\x64\x52',  # es9iPPdR
-        b'\x49\x66\x56\x67\x6a\x6a\x68\x69',  # IfVgjjhi
-        b'\x4d\x6b\x6b',                        # Mkk
-    ]
-    return b''.join(_p).decode('utf-8')
+# Public key — embedded in app, used to VERIFY license keys
+_RSA_PUBLIC_KEY_PEM = """-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3GZ6XNszSK/yL01zc5OZ
+lVStpAG5kok7QLqIys7DEbgX8M3ZlbPQoLc93DUO/SLkKZR7HAZmzYYPFrnreDVj
+ex9xgSsw1RmU+DCrBNfdrNHYNww2qKE+SKCZT2Q80HPDzUF85Q9T6GNH0w8+q76u
+fviEiopmiZFWztoioYYoprL74nTMQglUmB+YOTr1yLSAGAg909bwFMOQ3geWrRxm
+Rr/WyYExqj/4Jx0R2Jt/BZ/jkf2e2HHyVgGNB5492hykDhr17bWZxcu1FycA6vSo
+kqIJrtD5Jgn9WOiCBS/KAutgX+3g4Ebm6zNm5TEqq5+3itjW2kpnKV4xtOfNITwf
+lQIDAQAB
+-----END PUBLIC KEY-----"""
 
-# Use env override for dev, otherwise use the embedded secret
-_env_secret = getattr(app_settings, "LICENSE_SIGN_SECRET", "")
-LICENSE_SIGN_SECRET = _env_secret if _env_secret else _get_sign_secret()
+
+def _get_public_key():
+    """Load the RSA public key for signature verification."""
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
+    return load_pem_public_key(_RSA_PUBLIC_KEY_PEM.encode())
+
+
+def _get_private_key():
+    """Load the RSA private key for signing (admin only).
+    
+    Reads from LICENSE_PRIVATE_KEY env var. This should NEVER be
+    present in distributed builds — only on the developer's machine.
+    """
+    pem = getattr(app_settings, "LICENSE_PRIVATE_KEY", "")
+    if not pem:
+        raise RuntimeError(
+            "LICENSE_PRIVATE_KEY not configured. "
+            "License key generation is only available on the admin machine."
+        )
+    # Support escaped newlines from .env files
+    pem = pem.replace("\\n", "\n")
+    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+    return load_pem_private_key(pem.encode(), password=None)
 
 
 # Plan definitions
@@ -141,27 +160,47 @@ def get_machine_id() -> str:
 
 # ── License key signing & verification ────────────────────────────────────────
 
-def _sign_payload(payload: str) -> str:
-    """Create HMAC-SHA256 signature for a payload string."""
-    return hmac.new(
-        LICENSE_SIGN_SECRET.encode(), payload.encode(), hashlib.sha256
-    ).hexdigest()
+def _sign_payload(payload: str) -> bytes:
+    """Sign a payload string with RSA private key (admin only)."""
+    from cryptography.hazmat.primitives.asymmetric import padding
+    from cryptography.hazmat.primitives import hashes
+    private_key = _get_private_key()
+    return private_key.sign(
+        payload.encode(),
+        padding.PKCS1v15(),
+        hashes.SHA256(),
+    )
 
 
 def _verify_and_decode_key(license_key: str) -> Dict[str, Any]:
-    """Decode and verify HMAC signature of a license key."""
+    """Decode and verify RSA signature of a license key."""
+    from cryptography.hazmat.primitives.asymmetric import padding
+    from cryptography.hazmat.primitives import hashes
+
     try:
         decoded = base64.b64decode(license_key).decode("utf-8")
     except Exception:
         raise ValueError("Invalid license key format")
 
-    if "." not in decoded:
+    if "|SIG|" not in decoded:
         raise ValueError("Invalid license key — unsigned keys are not accepted")
 
-    payload, signature = decoded.rsplit(".", 1)
-    expected_sig = _sign_payload(payload)
+    payload, sig_b64 = decoded.rsplit("|SIG|", 1)
 
-    if not hmac.compare_digest(signature, expected_sig):
+    try:
+        signature = base64.b64decode(sig_b64)
+    except Exception:
+        raise ValueError("Invalid license key — corrupt signature")
+
+    public_key = _get_public_key()
+    try:
+        public_key.verify(
+            signature,
+            payload.encode(),
+            padding.PKCS1v15(),
+            hashes.SHA256(),
+        )
+    except Exception:
         raise ValueError("License key signature is invalid — key may be tampered or forged")
 
     return json.loads(payload)
@@ -340,10 +379,10 @@ async def renew_license(renewed_by: str) -> Dict[str, Any]:
 
 def generate_license_key(plan: str, customer_name: str, customer_email: str = "",
                          customer_phone: str = "", machine_id: str = "") -> str:
-    """Generate a SIGNED license key. Run on YOUR admin machine only.
+    """Generate an RSA-signed license key. Run on YOUR admin machine only.
 
-    The key = base64( JSON_payload + "." + HMAC_signature )
-    Nobody can forge this without knowing LICENSE_SIGN_SECRET.
+    The key = base64( JSON_payload + "|SIG|" + base64(RSA_signature) )
+    Nobody can forge this without the private key, even with full source access.
     If machine_id is provided, the key is bound to that specific device.
     """
     data = {
@@ -357,7 +396,8 @@ def generate_license_key(plan: str, customer_name: str, customer_email: str = ""
         data["machine_id"] = machine_id
     payload = json.dumps(data, sort_keys=True)
     signature = _sign_payload(payload)
-    signed = payload + "." + signature
+    sig_b64 = base64.b64encode(signature).decode("utf-8")
+    signed = payload + "|SIG|" + sig_b64
     return base64.b64encode(signed.encode("utf-8")).decode("utf-8")
 
 

@@ -37,7 +37,7 @@ class Settings:
     UPLOAD_DIR: str = cfg("UPLOAD_DIR", default="app/static/uploads")
     ALLOWED_ORIGINS: str = cfg("ALLOWED_ORIGINS", default="http://localhost:8000")
     ADMIN_SECRET: str = cfg("ADMIN_SECRET", default="")
-    LICENSE_SIGN_SECRET: str = cfg("LICENSE_SIGN_SECRET", default="")
+    LICENSE_PRIVATE_KEY: str = cfg("LICENSE_PRIVATE_KEY", default="")
     GOOGLE_CLIENT_ID: str = cfg("GOOGLE_CLIENT_ID", default="")
     GOOGLE_CLIENT_SECRET: str = cfg("GOOGLE_CLIENT_SECRET", default="")
 

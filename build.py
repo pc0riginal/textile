@@ -46,7 +46,8 @@ HIDDEN_IMPORTS = [
     "dns.rdatatype",
     "dns.asyncresolver",
     "multipart",
-    "jose",
+    "jwt",
+    "cryptography",
     "bcrypt",
     "decouple",
     "openpyxl",
@@ -188,11 +189,17 @@ def build():
     print("\n" + "=" * 60)
     print(f"BUILD COMPLETE")
     print(f"Output: dist/{APP_NAME}/")
-    print(f"Run:    dist/{APP_NAME}/{'start.bat' if platform.system() == 'Windows' else 'start.sh'}")
+    if platform.system() == "Windows":
+        print(f"Run:    dist/{APP_NAME}/create_shortcut.bat  (creates desktop icon)")
+        print(f"        Then double-click 'Textile ERP' on desktop")
+        print(f"Debug:  dist/{APP_NAME}/start.bat  (shows console)")
+    else:
+        print(f"Run:    dist/{APP_NAME}/start.sh")
     print("=" * 60)
 
 
 def create_windows_launcher(dist_dir):
+    # 1. Keep start.bat for manual/debug use (shows console)
     launcher = os.path.join(dist_dir, "start.bat")
     with open(launcher, "w") as f:
         f.write('@echo off\n')
@@ -202,6 +209,56 @@ def create_windows_launcher(dist_dir):
         f.write(f'"{APP_NAME}.exe"\n')
         f.write('pause\n')
     print(f"  Created {launcher}")
+
+    # 2. VBScript launcher — runs the exe with NO visible console window
+    vbs = os.path.join(dist_dir, "TextileERP.vbs")
+    with open(vbs, "w") as f:
+        f.write('Set WshShell = CreateObject("WScript.Shell")\n')
+        f.write('appDir = CreateObject("Scripting.FileSystemObject")'
+                '.GetParentFolderName(WScript.ScriptFullName)\n')
+        f.write('WshShell.CurrentDirectory = appDir\n')
+        f.write(f'WshShell.Run chr(34) & appDir & "\\{APP_NAME}.exe" & chr(34), 0, False\n')
+        # Wait a moment then open the browser
+        f.write('WScript.Sleep 3000\n')
+        f.write('WshShell.Run "http://localhost:8000", 1, False\n')
+    print(f"  Created {vbs}")
+
+    # 3. Stop script — kills the running server process
+    stop_script = os.path.join(dist_dir, "stop.bat")
+    with open(stop_script, "w") as f:
+        f.write('@echo off\n')
+        f.write('echo Stopping Textile ERP...\n')
+        f.write(f'taskkill /IM "{APP_NAME}.exe" /F >nul 2>&1\n')
+        f.write('if %errorlevel%==0 (\n')
+        f.write('    echo Textile ERP has been stopped.\n')
+        f.write(') else (\n')
+        f.write('    echo Textile ERP is not running.\n')
+        f.write(')\n')
+        f.write('timeout /t 3 >nul\n')
+    print(f"  Created {stop_script}")
+
+    # 4. Script to create a desktop shortcut (run once after install)
+    shortcut_script = os.path.join(dist_dir, "create_shortcut.bat")
+    with open(shortcut_script, "w") as f:
+        f.write('@echo off\n')
+        f.write('echo Creating desktop shortcut for Textile ERP...\n')
+        f.write('echo.\n')
+        # Use PowerShell to create a .lnk shortcut — works on all modern Windows
+        f.write('powershell -NoProfile -Command "')
+        f.write("$ws = New-Object -ComObject WScript.Shell; ")
+        f.write("$sc = $ws.CreateShortcut([IO.Path]::Combine("
+                "$ws.SpecialFolders('Desktop'), 'Textile ERP.lnk')); ")
+        f.write("$sc.TargetPath = '%~dp0TextileERP.vbs'; ")
+        f.write("$sc.WorkingDirectory = '%~dp0'; ")
+        f.write("$sc.IconLocation = '%~dp0textile-erp.exe,0'; ")
+        f.write("$sc.Description = 'Textile ERP System'; ")
+        f.write("$sc.Save()")
+        f.write('"\n')
+        f.write('echo.\n')
+        f.write('echo Desktop shortcut created successfully!\n')
+        f.write('echo You can now launch Textile ERP from your desktop.\n')
+        f.write('pause\n')
+    print(f"  Created {shortcut_script}")
 
 
 def create_unix_launcher(dist_dir):
