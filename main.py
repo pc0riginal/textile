@@ -4,7 +4,6 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import sys
 
 from app import BASE_DIR, TEMPLATES_DIR, STATIC_DIR
 from app.database import connect_to_mongo, close_mongo_connection
@@ -20,12 +19,6 @@ async def lifespan(app: FastAPI):
     # Startup
     await connect_to_mongo()
     await ensure_indexes()
-
-    # Auto-open browser in production (PyInstaller) builds
-    if getattr(sys, "frozen", False):
-        import threading, webbrowser
-        threading.Timer(1.5, lambda: webbrowser.open("http://localhost:8000")).start()
-
     yield
     # Shutdown
     await close_mongo_connection()
