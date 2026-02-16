@@ -79,6 +79,7 @@ async def create_challan_form(
     base_filter = get_company_filter(current_company)
     
     suppliers = await parties_collection.find({
+        **base_filter,
         "party_type": {"$in": ["supplier", "both"]}
     }).sort("name", 1).to_list(None)
     
@@ -86,7 +87,7 @@ async def create_challan_form(
     for s in suppliers:
         broker_info = None
         if s.get("broker_id"):
-            broker = await parties_collection.find_one({"_id": s["broker_id"]})
+            broker = await parties_collection.find_one({"_id": s["broker_id"], **base_filter})
             if broker:
                 broker_info = {"id": str(broker["_id"]), "name": broker["name"]}
         
@@ -136,15 +137,15 @@ async def create_challan(
     form_data = await request.form()
     challans_collection = await get_collection("purchase_challans")
     parties_collection = await get_collection("parties")
+    base_filter = get_company_filter(current_company)
     
     supplier_id = form_data.get("supplier_id")
-    supplier = await parties_collection.find_one({"_id": ObjectId(supplier_id)})
+    supplier = await parties_collection.find_one({"_id": ObjectId(supplier_id), **base_filter})
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
     
     # Check for duplicate invoice number
     invoice_no = form_data.get("invoice_no")
-    base_filter = get_company_filter(current_company)
     existing_invoice = await challans_collection.find_one({
         **base_filter,
         "invoice_no": invoice_no
@@ -152,13 +153,14 @@ async def create_challan(
     if existing_invoice:
         # Re-render form with error
         suppliers = await parties_collection.find({
+            **base_filter,
             "party_type": {"$in": ["supplier", "both"]}
         }).sort("name", 1).to_list(None)
         suppliers_list = []
         for s in suppliers:
             broker_info = None
             if s.get("broker_id"):
-                broker = await parties_collection.find_one({"_id": s["broker_id"]})
+                broker = await parties_collection.find_one({"_id": s["broker_id"], **base_filter})
                 if broker:
                     broker_info = {"id": str(broker["_id"]), "name": broker["name"]}
             suppliers_list.append({
@@ -241,7 +243,8 @@ async def get_qualities(
     current_company: dict = Depends(get_current_company)
 ):
     qualities_collection = await get_collection("qualities")
-    qualities = await qualities_collection.find({}).to_list(None)
+    base_filter = get_company_filter(current_company)
+    qualities = await qualities_collection.find(base_filter).to_list(None)
     return JSONResponse(content=[q["name"] for q in qualities] if qualities else [])
 
 @router.post("/qualities")
@@ -252,8 +255,10 @@ async def add_quality(
 ):
     data = await request.json()
     qualities_collection = await get_collection("qualities")
+    base_filter = get_company_filter(current_company)
     
     existing = await qualities_collection.find_one({
+        **base_filter,
         "name": data["name"]
     })
     
@@ -261,6 +266,7 @@ async def add_quality(
         return JSONResponse(content={"id": str(existing["_id"]), "name": data["name"]})
     
     quality_data = {
+        **base_filter,
         "name": data["name"],
         "created_at": datetime.utcnow()
     }

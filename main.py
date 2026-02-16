@@ -11,6 +11,7 @@ from app.indexes import ensure_indexes
 from app.routers import auth, dashboard, companies, parties, purchase_invoices, invoices, payments, user, settings, banking, reports, qualities
 from app.routers import license as license_router
 from app.routers import backup as backup_router
+from app.routers import users as users_router
 from app.services.license_service import check_license_status
 from config import settings as app_settings
 
@@ -84,6 +85,7 @@ app.include_router(banking.router, prefix="/banking", tags=["Banking"])
 app.include_router(reports.router, prefix="", tags=["Reports"])
 app.include_router(qualities.router, tags=["Qualities"])
 app.include_router(backup_router.router, prefix="/backup", tags=["Backup"])
+app.include_router(users_router.router, prefix="/users", tags=["Users"])
 
 # Debug router — only in development
 import os

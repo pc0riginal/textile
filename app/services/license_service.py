@@ -66,6 +66,7 @@ PLANS = {
         "price": 0,
         "duration_days": 10,
         "max_devices": 1,
+        "max_users": 5,
         "backup_enabled": False,
         "renewable": False,
         "renewal_price": 0,
@@ -75,6 +76,7 @@ PLANS = {
         "price": 7999,
         "duration_days": None,  # lifetime
         "max_devices": 1,
+        "max_users": 1,
         "backup_enabled": False,
         "renewable": False,
         "renewal_price": 0,
@@ -84,6 +86,7 @@ PLANS = {
         "price": 9999,
         "duration_days": None,  # lifetime
         "max_devices": 1,
+        "max_users": 1,
         "backup_enabled": True,
         "renewable": False,
         "renewal_price": 0,
@@ -93,6 +96,7 @@ PLANS = {
         "price": 12999,
         "duration_days": 365,
         "max_devices": 3,
+        "max_users": 10,
         "backup_enabled": True,
         "renewable": True,
         "renewal_price": 500,
@@ -104,6 +108,14 @@ async def get_license() -> Optional[Dict[str, Any]]:
     """Get the current instance's license from DB."""
     collection = await get_collection("license")
     return await collection.find_one({"_id": "instance_license"})
+
+
+async def get_max_users() -> int:
+    """Return the max allowed users for the current license plan."""
+    license_doc = await get_license()
+    if not license_doc:
+        return 1
+    return license_doc.get("max_users", 1)
 
 
 # ── Hardware fingerprint ──────────────────────────────────────────────────────
@@ -244,6 +256,7 @@ async def activate_license(license_key: str, activated_by: str) -> Dict[str, Any
         "customer_email": data.get("customer_email", ""),
         "customer_phone": data.get("customer_phone", ""),
         "max_devices": plan_info["max_devices"],
+        "max_users": plan_info.get("max_users", 1),
         "backup_enabled": plan_info["backup_enabled"],
         "issued_at": issued_at,
         "expires_at": expires_at,
@@ -312,6 +325,7 @@ async def check_license_status() -> Dict[str, Any]:
         "plan_name": license_doc.get("plan_name", ""),
         "customer_name": license_doc.get("customer_name", ""),
         "max_devices": license_doc.get("max_devices", 1),
+        "max_users": license_doc.get("max_users", 1),
         "backup_enabled": license_doc.get("backup_enabled", False),
         "days_remaining": days_remaining,
         "expires_at": license_doc.get("expires_at"),
@@ -508,6 +522,7 @@ async def change_plan(new_plan: str, changed_by: str) -> Dict[str, Any]:
         "plan": new_plan,
         "plan_name": plan_info["name"],
         "max_devices": plan_info["max_devices"],
+        "max_users": plan_info.get("max_users", 1),
         "backup_enabled": plan_info["backup_enabled"],
         "status": LicenseStatus.ACTIVE.value,
     }

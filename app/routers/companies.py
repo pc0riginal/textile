@@ -188,6 +188,10 @@ async def edit_company_form(
     request: Request,
     current_user: dict = Depends(get_current_user)
 ):
+    # Verify user owns this company
+    if company_id not in [str(cid) for cid in current_user.get("companies", [])]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     companies_collection = await get_collection("companies")
     company = await companies_collection.find_one({"_id": ObjectId(company_id)})
     
@@ -216,6 +220,10 @@ async def edit_company(
     phone: str = Form(...),
     email: str = Form(None)
 ):
+    # Verify user owns this company
+    if company_id not in [str(cid) for cid in current_user.get("companies", [])]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     errors = []
     
     # Validate mandatory fields
@@ -324,6 +332,10 @@ async def view_company(
     request: Request,
     current_user: dict = Depends(get_current_user)
 ):
+    # Verify user owns this company
+    if company_id not in [str(cid) for cid in current_user.get("companies", [])]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     companies_collection = await get_collection("companies")
     company = await companies_collection.find_one({"_id": ObjectId(company_id)})
     

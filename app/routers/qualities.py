@@ -21,7 +21,7 @@ async def list_qualities(
     per_page = 25
     skip = (page - 1) * per_page
 
-    filter_query = {}
+    filter_query = {"company_id": context["current_company"]["_id"]}
     if search:
         filter_query["name"] = {"$regex": search, "$options": "i"}
 
@@ -72,7 +72,7 @@ async def create_quality(
 ):
     qualities_collection = await get_collection("qualities")
     
-    existing = await qualities_collection.find_one({"name": name})
+    existing = await qualities_collection.find_one({"company_id": current_company["_id"], "name": name})
     
     if existing:
         return templates.TemplateResponse("qualities/create.html", {
@@ -88,6 +88,7 @@ async def create_quality(
         })
     
     quality_data = {
+        "company_id": current_company["_id"],
         "name": name,
         "display_name": display_name or name,
         "quality_main_group": quality_main_group,
@@ -107,7 +108,7 @@ async def edit_quality_form(
     current_company: dict = Depends(get_current_company)
 ):
     qualities_collection = await get_collection("qualities")
-    quality = await qualities_collection.find_one({"_id": ObjectId(quality_id)})
+    quality = await qualities_collection.find_one({"_id": ObjectId(quality_id), "company_id": current_company["_id"]})
     
     if not quality:
         raise HTTPException(status_code=404, detail="Quality not found")
@@ -138,12 +139,13 @@ async def update_quality(
     qualities_collection = await get_collection("qualities")
     
     existing = await qualities_collection.find_one({
+        "company_id": current_company["_id"],
         "name": name,
         "_id": {"$ne": ObjectId(quality_id)}
     })
     
     if existing:
-        quality = await qualities_collection.find_one({"_id": ObjectId(quality_id)})
+        quality = await qualities_collection.find_one({"_id": ObjectId(quality_id), "company_id": current_company["_id"]})
         return templates.TemplateResponse("qualities/edit.html", {
             "request": request,
             "current_user": current_user,
@@ -166,7 +168,7 @@ async def update_quality(
     }
     
     await qualities_collection.update_one(
-        {"_id": ObjectId(quality_id)},
+        {"_id": ObjectId(quality_id), "company_id": current_company["_id"]},
         {"$set": update_data}
     )
     
@@ -179,7 +181,7 @@ async def delete_quality(
     current_company: dict = Depends(get_current_company)
 ):
     qualities_collection = await get_collection("qualities")
-    result = await qualities_collection.delete_one({"_id": ObjectId(quality_id)})
+    result = await qualities_collection.delete_one({"_id": ObjectId(quality_id), "company_id": current_company["_id"]})
     
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Quality not found")
@@ -191,7 +193,7 @@ async def get_qualities_api(
     current_company: dict = Depends(get_current_company)
 ):
     qualities_collection = await get_collection("qualities")
-    qualities = await qualities_collection.find({}).sort("name", 1).to_list(None)
+    qualities = await qualities_collection.find({"company_id": current_company["_id"]}).sort("name", 1).to_list(None)
     
     for q in qualities:
         q["_id"] = str(q["_id"])
@@ -212,12 +214,13 @@ async def quick_add_quality(
     data = await request.json()
     qualities_collection = await get_collection("qualities")
     
-    existing = await qualities_collection.find_one({"name": data["name"]})
+    existing = await qualities_collection.find_one({"company_id": current_company["_id"], "name": data["name"]})
     
     if existing:
         return JSONResponse(content={"id": str(existing["_id"]), "name": existing["name"]})
     
     quality_data = {
+        "company_id": current_company["_id"],
         "name": data["name"],
         "display_name": data.get("display_name") or data["name"],
         "quality_main_group": data.get("quality_main_group"),

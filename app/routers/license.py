@@ -3,6 +3,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse
 
 from app import TEMPLATES_DIR
+from app.database import get_collection
 from app.dependencies import get_current_user
 from app.services.license_service import (
     activate_license, check_license_status, get_license,
@@ -248,6 +249,25 @@ async def admin_reset_devices(request: Request):
         return JSONResponse(content={"success": True, "cleared": result["cleared"]})
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/admin/update-max-users")
+async def admin_update_max_users(request: Request, max_users: int = Form(...)):
+    """Update the max_users limit on the license."""
+    verify_admin_secret(request)
+    if max_users < 1:
+        raise HTTPException(status_code=400, detail="Max users must be at least 1")
+
+    license_collection = await get_collection("license")
+    license_doc = await license_collection.find_one({"_id": "instance_license"})
+    if not license_doc:
+        raise HTTPException(status_code=400, detail="No license found")
+
+    await license_collection.update_one(
+        {"_id": "instance_license"},
+        {"$set": {"max_users": max_users}}
+    )
+    return JSONResponse(content={"success": True, "max_users": max_users})
 
 
 @router.get("/admin/log")

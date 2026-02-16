@@ -129,9 +129,15 @@ async def sales_report(
     total_outstanding = total_pending
     
     base_filter = get_company_filter(current_company)
-    customers = await parties_collection.find({"party_type": {"$in": ["customer", "both"]}}).sort("name", 1).to_list(None) or []
-    brokers = await parties_collection.find({"party_type": {"$in": ["broker", "both"]}}).sort("name", 1).to_list(None) or []
-    qualities = await qualities_collection.find({}).sort("name", 1).to_list(None) or []
+    customers = await parties_collection.find({
+        "company_id": current_company["_id"],
+        "party_type": {"$in": ["customer", "both"]}
+    }).sort("name", 1).to_list(None) or []
+    brokers = await parties_collection.find({
+        "company_id": current_company["_id"],
+        "party_type": {"$in": ["broker", "both"]}
+    }).sort("name", 1).to_list(None) or []
+    qualities = await qualities_collection.find({"company_id": current_company["_id"]}).sort("name", 1).to_list(None) or []
     
     # Resolve selected filter names for print header
     selected_customer_name = ""
@@ -194,6 +200,7 @@ async def create_invoice_form(
     parties_collection = await get_collection("parties")
     base_filter = get_company_filter(current_company)
     customers = await parties_collection.find({
+        "company_id": current_company["_id"],
         "party_type": {"$in": ["customer", "both"]}
     }).sort("name", 1).to_list(None)
     
@@ -239,7 +246,7 @@ async def create_invoice(
     parties_collection = await get_collection("parties")
     
     # Get customer details
-    customer = await parties_collection.find_one({"_id": ObjectId(customer_id)})
+    customer = await parties_collection.find_one({"_id": ObjectId(customer_id), "company_id": current_company["_id"]})
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     
@@ -365,6 +372,7 @@ async def edit_invoice_form(
     
     base_filter = get_company_filter(current_company)
     customers = await parties_collection.find({
+        "company_id": current_company["_id"],
         "party_type": {"$in": ["customer", "both"]}
     }).sort("name", 1).to_list(None)
     
@@ -401,7 +409,7 @@ async def update_invoice(
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
-    customer = await parties_collection.find_one({"_id": ObjectId(customer_id)})
+    customer = await parties_collection.find_one({"_id": ObjectId(customer_id), "company_id": current_company["_id"]})
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     
@@ -526,7 +534,7 @@ async def print_invoice(
         raise HTTPException(status_code=404, detail="Invoice not found")
     
     # Get customer details
-    customer = await parties_collection.find_one({"_id": invoice["customer_id"]})
+    customer = await parties_collection.find_one({"_id": invoice["customer_id"], "company_id": current_company["_id"]})
     if not customer:
         customer = {"name": invoice.get("customer_name", "Unknown")}
     

@@ -198,6 +198,7 @@ async def create_sales_receipt_form(
     
     # Get customers
     customers = await parties_collection.find({
+        "company_id": ObjectId(current_company["_id"]),
         "party_type": {"$in": ["customer", "both"]}
     }).sort("name", 1).to_list(None)
     
@@ -231,6 +232,7 @@ async def create_receipt_form(
     
     # Get suppliers
     suppliers = await parties_collection.find({
+        "company_id": ObjectId(current_company["_id"]),
         "party_type": {"$in": ["supplier", "both"]}
     }).sort("name", 1).to_list(None)
     
@@ -285,7 +287,7 @@ async def create_sales_receipt(
     bank_transactions_collection = await get_collection("bank_transactions")
     
     customer_id = form_data.get("customer_id")
-    customer = await parties_collection.find_one({"_id": ObjectId(customer_id)})
+    customer = await parties_collection.find_one({"_id": ObjectId(customer_id), "company_id": ObjectId(current_company["_id"])})
     
     count = await payments_collection.count_documents({"company_id": ObjectId(current_company["_id"])})
     payment_no = f"REC{count + 1:04d}"
@@ -398,7 +400,7 @@ async def create_receipt(
         if not selected_invoices:
             raise HTTPException(status_code=400, detail="No invoices selected")
         
-        supplier = await parties_collection.find_one({"_id": ObjectId(supplier_id)})
+        supplier = await parties_collection.find_one({"_id": ObjectId(supplier_id), "company_id": ObjectId(current_company["_id"])})
         if not supplier:
             raise HTTPException(status_code=404, detail="Supplier not found")
         
@@ -531,9 +533,9 @@ async def view_payment(
     
     party = None
     if payment.get("supplier_id"):
-        party = await parties_collection.find_one({"_id": payment["supplier_id"]})
+        party = await parties_collection.find_one({"_id": payment["supplier_id"], "company_id": ObjectId(current_company["_id"])})
     elif payment.get("party_id"):
-        party = await parties_collection.find_one({"_id": payment["party_id"]})
+        party = await parties_collection.find_one({"_id": payment["party_id"], "company_id": ObjectId(current_company["_id"])})
     
     if payment.get("payment_type") == "receipt":
         # Sales receipt - load invoice details
@@ -704,7 +706,7 @@ async def party_ledger(
     challans_collection = await get_collection("purchase_challans")
     
     # Get party details
-    party = await parties_collection.find_one({"_id": ObjectId(party_id)})
+    party = await parties_collection.find_one({"_id": ObjectId(party_id), "company_id": ObjectId(current_company["_id"])})
     if not party:
         raise HTTPException(status_code=404, detail="Party not found")
     

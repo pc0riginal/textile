@@ -42,6 +42,15 @@ async def get_current_user(request: Request, credentials: HTTPAuthorizationCrede
     
     return user
 
+
+async def get_admin_user(current_user: dict = Depends(get_current_user)):
+    """Dependency — alias for get_current_user (no admin role distinction).
+    
+    Kept for backward compatibility with routers that reference it.
+    All users have equal privileges; license management is gated by ADMIN_SECRET.
+    """
+    return current_user
+
 async def get_current_company(request: Request, current_user: dict = Depends(get_current_user)):
     company_id = request.cookies.get("current_company_id")
     companies_collection = await get_collection("companies")
@@ -64,12 +73,6 @@ async def get_current_company(request: Request, current_user: dict = Depends(get
                     break
             except Exception:
                 continue
-    
-    # Fallback to any company in DB
-    if not company:
-        all_companies = await companies_collection.find({}).to_list(1)
-        if all_companies:
-            company = all_companies[0]
     
     if not company:
         raise HTTPException(

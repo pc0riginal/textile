@@ -23,6 +23,7 @@ async def report_generator(request: Request, current_user: dict = Depends(get_cu
     ).to_list(None)
     
     suppliers_raw = await parties_collection.find({
+        "company_id": current_company["_id"],
         "party_type": {"$in": ["supplier", "both"]}
     }).sort("name", 1).to_list(None)
     
@@ -33,7 +34,7 @@ async def report_generator(request: Request, current_user: dict = Depends(get_cu
             supplier_dict["broker_id"] = str(s["broker_id"])
         suppliers.append(supplier_dict)
     
-    qualities = await qualities_collection.find({}).to_list(None)
+    qualities = await qualities_collection.find({"company_id": current_company["_id"]}).to_list(None)
     
     return templates.TemplateResponse("reports/generator.html", {
         "request": request,

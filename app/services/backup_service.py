@@ -62,6 +62,46 @@ def _get_backup_dir(settings: Optional[Dict] = None) -> str:
     return DEFAULT_BACKUP_DIR
 
 
+def _find_mongo_tool(tool_name: str) -> str:
+    """Resolve the full path to a MongoDB Database Tools binary (mongodump, mongorestore, etc.).
+
+    Search order:
+      1. Already on PATH (shutil.which)
+      2. MONGODUMP_PATH env var directory (if set)
+      3. Common Windows install locations (Program Files)
+    Returns the tool name as-is if found on PATH, or the full path otherwise.
+    """
+    # 1. Check PATH
+    found = shutil.which(tool_name)
+    if found:
+        return found
+
+    # 2. Check MONGODUMP_PATH env var (points to the bin directory)
+    env_path = os.environ.get("MONGODUMP_PATH", "")
+    if env_path:
+        candidate = os.path.join(env_path, f"{tool_name}.exe" if sys.platform == "win32" else tool_name)
+        if os.path.isfile(candidate):
+            return candidate
+
+    # 3. Scan common Windows install directories
+    if sys.platform == "win32":
+        program_files = os.environ.get("ProgramFiles", r"C:\Program Files")
+        tools_base = os.path.join(program_files, "MongoDB", "Tools")
+        if os.path.isdir(tools_base):
+            # Check versioned folders (100, 100.10.0, etc.) — newest first
+            versions = sorted(os.listdir(tools_base), reverse=True)
+            for ver in versions:
+                candidate = os.path.join(tools_base, ver, "bin", f"{tool_name}.exe")
+                if os.path.isfile(candidate):
+                    return candidate
+
+    raise FileNotFoundError(
+        f"{tool_name} not found. Install MongoDB Database Tools to enable backups.\n"
+        f"Download: https://www.mongodb.com/try/download/database-tools\n"
+        f"Or set the MONGODUMP_PATH environment variable to the bin directory."
+    )
+
+
 def _run_mongodump() -> str:
     """Run mongodump and return the path to the zip file."""
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -73,14 +113,16 @@ def _run_mongodump() -> str:
     dump_dir = os.path.join(DEFAULT_BACKUP_DIR, f"dump_{timestamp}")
     zip_base = os.path.join(DEFAULT_BACKUP_DIR, f"backup_{db_name}_{timestamp}")
 
-    cmd = ["mongodump", f"--uri={mongo_url}", f"--db={db_name}", f"--out={dump_dir}"]
+    mongodump_bin = _find_mongo_tool("mongodump")
+    cmd = [mongodump_bin, f"--uri={mongo_url}", f"--db={db_name}", f"--out={dump_dir}"]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
             raise RuntimeError(f"mongodump failed: {result.stderr}")
     except FileNotFoundError:
         raise RuntimeError(
-            "mongodump not found. Install MongoDB Database Tools to enable backups."
+            "mongodump not found. Install MongoDB Database Tools to enable backups.\n"
+            "Download: https://www.mongodb.com/try/download/database-tools"
         )
 
     zip_file = shutil.make_archive(zip_base, "zip", dump_dir)
@@ -418,14 +460,17 @@ async def restore_backup(filename: str, restored_by: str = "system") -> Dict[str
             raise ValueError("Could not find database dump inside the backup archive")
 
         cmd = [
-            "mongorestore", f"--uri={mongo_url}", f"--db={db_name}",
+            _find_mongo_tool("mongorestore"), f"--uri={mongo_url}", f"--db={db_name}",
             "--drop", dump_path
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
             raise RuntimeError(f"mongorestore failed: {result.stderr}")
     except FileNotFoundError:
-        raise RuntimeError("mongorestore not found. Install MongoDB Database Tools.")
+        raise RuntimeError(
+            "mongorestore not found. Install MongoDB Database Tools.\n"
+            "Download: https://www.mongodb.com/try/download/database-tools"
+        )
     finally:
         shutil.rmtree(extract_dir, ignore_errors=True)
 
