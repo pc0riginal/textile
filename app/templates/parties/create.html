@@ -76,8 +76,22 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">GST No.</label>
-                        <input type="text" name="gstin" x-model="gstin" @input="gstin = gstin.toUpperCase(); validateGST()" maxlength="15" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 uppercase" placeholder="22AAAAA0000A1Z5">
+                        <div class="relative">
+                            <input type="text" name="gstin" x-model="gstin" 
+                                @input="gstin = gstin.toUpperCase(); validateGST(); if(gstin.length === 15 && !gstError && !gstVerified && !gstModalOpen) { $nextTick(() => fetchGSTDetails()); }" 
+                                @blur="if(gstin.length === 15 && !gstError && !gstVerified) fetchGSTDetails()" 
+                                @paste="$nextTick(() => { if(gstin.length === 15 && !gstError && !gstVerified && !gstModalOpen) fetchGSTDetails(); })"
+                                maxlength="15" 
+                                class="w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 uppercase" 
+                                :class="gstError ? 'border-red-500' : 'border-gray-300'" 
+                                placeholder="22AAAAA0000A1Z5">
+                            <div x-show="gstLoading" class="absolute right-2 top-1/2 -translate-y-1/2">
+                                <svg class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                            </div>
+                            <div x-show="gstVerified" class="absolute right-2 top-1/2 -translate-y-1/2 text-green-500">✓</div>
+                        </div>
                         <p x-show="gstError" class="text-xs text-red-600 mt-1" x-text="gstError"></p>
+                        <p x-show="gstInfo" class="text-xs text-green-600 mt-1" x-text="gstInfo"></p>
                     </div>
 
                     <div>
@@ -233,6 +247,10 @@ function partyForm() {
         interest: '',
         mobileError: '',
         gstError: '',
+        gstLoading: false,
+        gstVerified: false,
+        gstInfo: '',
+        gstModalOpen: false,
         pincodeError: '',
         dharaDayError: '',
         interestError: '',
@@ -299,9 +317,83 @@ function partyForm() {
         validateGST() {
             if (this.gstin && this.gstin.length !== 15) {
                 this.gstError = 'GST number must be 15 characters';
+                this.gstVerified = false;
+                this.gstInfo = '';
+            } else if (this.gstin && this.gstin.length === 15) {
+                // Validate GSTIN format: 2 digits, 5 letters, 4 digits, 1 letter, 1 digit/letter, Z, 1 alphanumeric
+                if (!/^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z0-9A-J][A-Z\d]$/.test(this.gstin)) {
+                    this.gstError = 'Invalid GSTIN format';
+                    this.gstVerified = false;
+                    this.gstInfo = '';
+                } else {
+                    this.gstError = '';
+                }
             } else {
                 this.gstError = '';
             }
+        },
+
+        async fetchGSTDetails() {
+            if (!this.gstin || this.gstin.length !== 15 || this.gstError || this.gstModalOpen) return;
+            
+            // Set flag to prevent multiple modals
+            this.gstModalOpen = true;
+            
+            // Use GST verification modal with captcha
+            const gstVerification = new GSTVerification();
+            
+            gstVerification.showVerificationModal(this.gstin, (data) => {
+                // Auto-fill form with verified data
+                if (!this.name.trim() && (data.trade_name || data.legal_name)) {
+                    this.name = data.trade_name || data.legal_name;
+                }
+                
+                // Auto-fill delivery address
+                if (data.address && !this.deliveryAddress.trim()) {
+                    this.deliveryAddress = data.address;
+                }
+                
+                // Auto-fill city
+                if (data.city && !this.deliveryCity.trim()) {
+                    this.deliveryCity = data.city;
+                }
+                
+                // Auto-fill pincode
+                if (data.pincode && !this.deliveryPincode.trim()) {
+                    this.deliveryPincode = data.pincode;
+                }
+                
+                // Auto-fill state
+                if (data.state) {
+                    const stateUpper = data.state.toUpperCase();
+                    const stateSelect = document.querySelector('select[name="delivery_state"]');
+                    if (stateSelect) {
+                        for (let opt of stateSelect.options) {
+                            if (opt.value.toUpperCase() === stateUpper || opt.value.toUpperCase().includes(stateUpper)) {
+                                this.deliveryState = opt.value;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Sync to office address
+                this.syncToOffice();
+                
+                this.gstVerified = true;
+                this.gstInfo = `✓ ${data.legal_name || data.trade_name}`;
+                this.gstError = '';
+                this.gstModalOpen = false;
+                
+                if (typeof showToast === 'function') {
+                    showToast('GST details verified and auto-filled successfully', 'success');
+                }
+            });
+            
+            // Reset flag when modal is closed without success
+            setTimeout(() => {
+                this.gstModalOpen = false;
+            }, 1000);
         },
 
         validatePincode() {
@@ -412,4 +504,8 @@ function partyForm() {
     }
 }
 </script>
+
+<!-- GST Verification Script -->
+<script src="/static/js/gst-verification.js"></script>
+
 {% endblock %}

@@ -170,11 +170,6 @@
                     <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
                     <hr class="my-2">
                     <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Logout</a>
-                    <hr class="my-2">
-                    <button @click="if(confirm('Stop the Textile ERP server? You will need to relaunch the app to use it again.')) { fetch('/api/shutdown', {method:'POST'}).then(() => { document.body.innerHTML = \'<div style=&quot;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666&quot;><div style=&quot;text-align:center&quot;><h2>Server Stopped</h2><p>You can close this tab now.</p></div></div>\'; }); }" 
-                            class="w-full text-left px-4 py-2 text-sm text-gray-500 hover:bg-gray-100">
-                        Stop Server
-                    </button>
                 </div>
             </div>
         </div>

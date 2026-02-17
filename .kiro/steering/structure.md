@@ -3,8 +3,7 @@
 ```
 ├── main.py                  # FastAPI app entry point, router registration, lifespan events, index creation
 ├── config.py                # Settings class (env vars via python-decouple), ALLOWED_ORIGINS, SECRET_KEY safety
-├── start.py                 # Dev startup script (DB init check + uvicorn launch)
-├── init_db.py               # Database seed script (creates admin user)
+├── start.py                 # Dev startup script (DB connection check + uvicorn launch)
 ├── requirements.txt         # Python dependencies
 ├── Dockerfile / docker-compose.yml
 │

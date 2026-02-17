@@ -581,6 +581,36 @@ async def add_party_bank(
     
     return JSONResponse(content={"success": True})
 
+@router.get("/api/gst-lookup")
+async def gst_lookup(
+    gstin: str = Query(..., min_length=15, max_length=15),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Look up business details from a GSTIN number.
+    This endpoint now redirects to the captcha-based verification flow.
+    Returns a message to use the GST verification modal.
+    """
+    from app.services.gst_service import GSTService
+    
+    # Validate format first
+    if not GSTService.validate_gstin_format(gstin):
+        return JSONResponse(
+            content={
+                "error": True, 
+                "message": "Invalid GSTIN format. Please check and try again."
+            },
+            status_code=400,
+        )
+    
+    # Return instruction to use captcha verification
+    return JSONResponse(content={
+        "error": False,
+        "requires_captcha": True,
+        "message": "GST verification requires captcha. Please use the 'Verify GST' button.",
+        "gstin": gstin.upper()
+    })
+
 @router.get("/api/{party_id}")
 async def get_party_api(
     party_id: str,
@@ -618,3 +648,4 @@ async def delete_party(
         raise HTTPException(status_code=404, detail="Party not found")
     
     return JSONResponse(content={"message": "Party deleted successfully"})
+
