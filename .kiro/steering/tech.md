@@ -48,9 +48,6 @@ python start.py
 # or directly:
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-# Initialize database with admin user
-python -c "import asyncio; from init_db import init_database; from app.database import connect_to_mongo; asyncio.run(connect_to_mongo()); asyncio.run(init_database())"
-
 # Docker
 docker-compose up --build
 ```

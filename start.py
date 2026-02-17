@@ -17,17 +17,6 @@ async def main():
         from app.database import connect_to_mongo, get_collection
         await connect_to_mongo()
         print("✅ MongoDB connection successful")
-        
-        # Check if demo data exists
-        users_collection = await get_collection("users")
-        admin_user = await users_collection.find_one({"username": "admin"})
-        
-        if not admin_user:
-            print("🔧 Initializing database with demo data...")
-            from init_db import init_database
-            await init_database()
-        else:
-            print("✅ Demo data already exists")
             
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
@@ -40,9 +29,7 @@ async def main():
     print("🚀 STARTING TEXTILE ERP APPLICATION")
     print("=" * 60)
     print("📱 Application will be available at: http://localhost:8000")
-    print("👤 Demo Login Credentials:")
-    print("   Username: admin")
-    print("   Password: admin123")
+    print("👤 First time? You'll be prompted to create your admin account.")
     print("\n🎯 Key Features Available:")
     print("   ✅ Multi-Company Management")
     print("   ✅ Party Management (Customers, Suppliers, Brokers, Transporters)")

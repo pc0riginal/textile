@@ -69,6 +69,10 @@ async def ensure_indexes():
         counters = await get_collection("counters")
         await counters.create_index([("company_id", 1), ("prefix", 1)], unique=True)
 
+        # GSTIN cache (for GST auto-fill lookups)
+        gstin_cache = await get_collection("gstin_cache")
+        await gstin_cache.create_index("gstin", unique=True)
+
         logger.info("Database indexes ensured successfully")
     except Exception as e:
         logger.error(f"Error creating indexes: {e}")
