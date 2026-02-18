@@ -108,25 +108,26 @@ async def get_license() -> Optional[Dict[str, Any]]:
 
 # ── Hardware fingerprint ──────────────────────────────────────────────────────
 
+
 def get_machine_id() -> str:
     """Generate a stable hardware fingerprint for this machine.
-    
-    Combines MAC address + platform-specific ID + hostname so it stays
-    stable across reboots and is hard to spoof.
+
+    Uses platform-specific hardware IDs that remain constant across reboots.
+    Deliberately avoids MAC address (uuid.getnode()) because it can return
+    random values when network adapters change or are unavailable, causing
+    the machine ID to shift on every restart.
     """
     parts = []
 
-    # 1. MAC address
-    mac = uuid.getnode()
-    if mac:
-        parts.append(f"mac:{mac}")
-
-    # 2. Platform-specific machine ID
+    # 1. Platform-specific machine ID (most reliable)
     system = platform.system()
     try:
         if system == "Linux":
             if os.path.exists("/etc/machine-id"):
                 with open("/etc/machine-id") as f:
+                    parts.append(f"mid:{f.read().strip()}")
+            elif os.path.exists("/var/lib/dbus/machine-id"):
+                with open("/var/lib/dbus/machine-id") as f:
                     parts.append(f"mid:{f.read().strip()}")
         elif system == "Darwin":
             result = subprocess.run(
@@ -151,11 +152,22 @@ def get_machine_id() -> str:
     except Exception as e:
         logger.warning(f"Could not read platform machine ID: {e}")
 
-    # 3. Hostname as weak fallback
+    # 2. Hostname as secondary factor
     parts.append(f"host:{platform.node()}")
+
+    # 3. Fallback: if no platform ID was found, use MAC as last resort
+    #    (better than nothing, but we prefer not to rely on it)
+    if len(parts) <= 1:  # only hostname was added
+        mac = uuid.getnode()
+        # Check bit 0 of first octet — if set, it's a random MAC (Python fallback)
+        if mac and not (mac >> 40) & 1:
+            parts.insert(0, f"mac:{mac}")
+        else:
+            logger.warning("No stable hardware ID found and MAC is random — machine ID may be unstable")
 
     raw = "|".join(parts)
     return hashlib.sha256(raw.encode()).hexdigest()
+
 
 
 # ── License key signing & verification ────────────────────────────────────────
@@ -260,6 +272,7 @@ async def activate_license(license_key: str, activated_by: str) -> Dict[str, Any
     return license_doc
 
 
+
 async def check_license_status() -> Dict[str, Any]:
     """Check current license validity including device binding."""
     license_doc = await get_license()
@@ -286,20 +299,34 @@ async def check_license_status() -> Dict[str, Any]:
     registered_devices = license_doc.get("devices", [])
     if registered_devices and device_id not in registered_devices:
         max_devices = license_doc.get("max_devices", 1)
-        if len(registered_devices) >= max_devices:
+
+        # Migration: if only 1 device is registered and max is 1,
+        # this is likely the same machine with a changed fingerprint
+        # (e.g. after the MAC-based → stable ID algorithm update).
+        # Auto-replace the old device ID with the new stable one.
+        if len(registered_devices) <= max_devices:
+            # For single-device plans, just replace the old ID
+            if max_devices == 1:
+                collection = await get_collection("license")
+                await collection.update_one(
+                    {"_id": "instance_license"},
+                    {"$set": {"devices": [device_id]}}
+                )
+                logger.info(f"Device ID migrated (single-device plan): {device_id[:12]}...")
+            else:
+                # Multi-device plan: add new device if under limit
+                collection = await get_collection("license")
+                await collection.update_one(
+                    {"_id": "instance_license"},
+                    {"$addToSet": {"devices": device_id}}
+                )
+                logger.info(f"New device auto-registered: {device_id[:12]}...")
+        else:
             return {
                 "valid": False,
                 "reason": "device_limit",
                 "message": f"This license is bound to another machine. Max {max_devices} device(s) allowed.",
             }
-        else:
-            # Auto-register if under limit (for online plan with 3 devices)
-            collection = await get_collection("license")
-            await collection.update_one(
-                {"_id": "instance_license"},
-                {"$addToSet": {"devices": device_id}}
-            )
-            logger.info(f"New device auto-registered: {device_id[:12]}...")
 
     plan_info = PLANS.get(PlanType(license_doc["plan"]), {})
     days_remaining = None
@@ -317,6 +344,7 @@ async def check_license_status() -> Dict[str, Any]:
         "expires_at": license_doc.get("expires_at"),
         "device_count": len(license_doc.get("devices", [])),
     }
+
 
 
 async def register_device(device_id: str) -> bool:
