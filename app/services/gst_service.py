@@ -90,10 +90,11 @@ def validate_gstin_format(gstin: str) -> bool:
     return _validate_gst_checksum(gstin)
 
 
+
 async def get_gst_captcha() -> Dict[str, Any]:
     """
     Fetch captcha image from GST portal.
-    
+
     Returns:
         dict: {
             "success": True/False,
@@ -105,7 +106,7 @@ async def get_gst_captcha() -> Dict[str, Any]:
     try:
         # Add random parameter to prevent caching
         url = f"{GST_CAPTCHA_URL}?rnd={random.random()}"
-        
+
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             response = await client.get(
                 url,
@@ -116,38 +117,55 @@ async def get_gst_captcha() -> Dict[str, Any]:
                     "Referer": "https://services.gst.gov.in/",
                 }
             )
-            
+
             if response.status_code != 200:
                 return {
                     "success": False,
                     "error": f"Failed to fetch captcha. Status: {response.status_code}"
                 }
-            
-            # Extract CaptchaCookie from Set-Cookie header
+
+            # Extract CaptchaCookie — try multiple methods
             captcha_cookie = None
-            set_cookie_header = response.headers.get("set-cookie", "")
-            
-            if set_cookie_header:
-                # Parse Set-Cookie header to find CaptchaCookie
-                cookie_parts = set_cookie_header.split(";")
-                for part in cookie_parts:
-                    if "=" in part:
-                        key, value = part.split("=", 1)
-                        if key.strip() == CAPTCHA_COOKIE_NAME:
-                            captcha_cookie = value.strip()
+
+            # Method 1: Check httpx parsed cookies (most reliable)
+            if CAPTCHA_COOKIE_NAME in response.cookies:
+                captcha_cookie = response.cookies[CAPTCHA_COOKIE_NAME]
+
+            # Method 2: Parse raw Set-Cookie header as fallback
+            if not captcha_cookie:
+                # httpx may return multiple set-cookie as a single comma-joined string
+                # or via headers.get_list if available
+                raw_cookies = response.headers.get("set-cookie", "")
+                if raw_cookies:
+                    cookie_parts = raw_cookies.split(";")
+                    for part in cookie_parts:
+                        if "=" in part:
+                            key, value = part.split("=", 1)
+                            if key.strip() == CAPTCHA_COOKIE_NAME:
+                                captcha_cookie = value.strip()
+                                break
+
+            # Method 3: Check all response headers for set-cookie
+            if not captcha_cookie:
+                for key, value in response.headers.multi_items():
+                    if key.lower() == "set-cookie" and CAPTCHA_COOKIE_NAME in value:
+                        parts = value.split(";")[0]  # Get "CaptchaCookie=value" part
+                        if "=" in parts:
+                            _, cookie_val = parts.split("=", 1)
+                            captcha_cookie = cookie_val.strip()
                             break
-            
+
             if not captcha_cookie:
                 return {
                     "success": False,
                     "error": "No CaptchaCookie received from GST portal",
                     "debug_info": {
                         "status_code": response.status_code,
-                        "set_cookie_header": set_cookie_header,
-                        "all_cookies": dict(response.cookies)
+                        "all_headers": [(k, v) for k, v in response.headers.multi_items() if k.lower() == "set-cookie"],
+                        "parsed_cookies": dict(response.cookies),
                     }
                 }
-            
+
             # Check if response is an image
             content_type = response.headers.get("content-type", "")
             if "image" not in content_type:
@@ -159,16 +177,16 @@ async def get_gst_captcha() -> Dict[str, Any]:
                         "content_preview": response.text[:200] if len(response.content) < 1000 else "Binary data"
                     }
                 }
-            
+
             # Convert image to base64
             captcha_base64 = base64.b64encode(response.content).decode('utf-8')
-            
+
             return {
                 "success": True,
                 "captcha_image": f"data:image/png;base64,{captcha_base64}",
                 "captcha_cookie": captcha_cookie
             }
-            
+
     except httpx.TimeoutException:
         return {
             "success": False,
@@ -179,6 +197,7 @@ async def get_gst_captcha() -> Dict[str, Any]:
             "success": False,
             "error": f"Error fetching captcha: {str(e)}"
         }
+
 
 
 async def verify_gstin(

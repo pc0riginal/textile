@@ -336,31 +336,38 @@ function partyForm() {
         async fetchGSTDetails() {
             if (!this.gstin || this.gstin.length !== 15 || this.gstError || this.gstModalOpen) return;
             
+            // Check if GSTVerification is loaded
+            if (typeof GSTVerification === 'undefined') {
+                console.error('GSTVerification not loaded yet');
+                return;
+            }
+            
             // Set flag to prevent multiple modals
             this.gstModalOpen = true;
+            const self = this;
             
             // Use GST verification modal with captcha
             const gstVerification = new GSTVerification();
             
             gstVerification.showVerificationModal(this.gstin, (data) => {
                 // Auto-fill form with verified data
-                if (!this.name.trim() && (data.trade_name || data.legal_name)) {
-                    this.name = data.trade_name || data.legal_name;
+                if (!self.name.trim() && (data.trade_name || data.legal_name)) {
+                    self.name = data.trade_name || data.legal_name;
                 }
                 
                 // Auto-fill delivery address
-                if (data.address && !this.deliveryAddress.trim()) {
-                    this.deliveryAddress = data.address;
+                if (data.address && !self.deliveryAddress.trim()) {
+                    self.deliveryAddress = data.address;
                 }
                 
                 // Auto-fill city
-                if (data.city && !this.deliveryCity.trim()) {
-                    this.deliveryCity = data.city;
+                if (data.city) {
+                    self.deliveryCity = data.city;
                 }
                 
                 // Auto-fill pincode
-                if (data.pincode && !this.deliveryPincode.trim()) {
-                    this.deliveryPincode = data.pincode;
+                if (data.pincode) {
+                    self.deliveryPincode = data.pincode;
                 }
                 
                 // Auto-fill state
@@ -370,7 +377,7 @@ function partyForm() {
                     if (stateSelect) {
                         for (let opt of stateSelect.options) {
                             if (opt.value.toUpperCase() === stateUpper || opt.value.toUpperCase().includes(stateUpper)) {
-                                this.deliveryState = opt.value;
+                                self.deliveryState = opt.value;
                                 break;
                             }
                         }
@@ -378,22 +385,25 @@ function partyForm() {
                 }
                 
                 // Sync to office address
-                this.syncToOffice();
+                self.syncToOffice();
                 
-                this.gstVerified = true;
-                this.gstInfo = `✓ ${data.legal_name || data.trade_name}`;
-                this.gstError = '';
-                this.gstModalOpen = false;
+                self.gstVerified = true;
+                self.gstInfo = `✓ ${data.legal_name || data.trade_name}`;
+                self.gstError = '';
+                self.gstModalOpen = false;
                 
                 if (typeof showToast === 'function') {
                     showToast('GST details verified and auto-filled successfully', 'success');
                 }
             });
             
-            // Reset flag when modal is closed without success
-            setTimeout(() => {
-                this.gstModalOpen = false;
-            }, 1000);
+            // Watch for modal removal to reset flag (handles cancel/close/ESC)
+            const checkModal = setInterval(() => {
+                if (!document.getElementById('gstVerificationModal')) {
+                    self.gstModalOpen = false;
+                    clearInterval(checkModal);
+                }
+            }, 500);
         },
 
         validatePincode() {
