@@ -286,6 +286,7 @@ async def activate_license(license_key: str, activated_by: str) -> Dict[str, Any
 
 
 
+
 async def check_license_status() -> Dict[str, Any]:
     """Check current license validity including device binding."""
     license_doc = await get_license()
@@ -313,27 +314,30 @@ async def check_license_status() -> Dict[str, Any]:
     if registered_devices and device_id not in registered_devices:
         max_devices = license_doc.get("max_devices", 1)
 
-        # Migration: if only 1 device is registered and max is 1,
-        # this is likely the same machine with a changed fingerprint
-        # (e.g. after the MAC-based → stable ID algorithm update).
-        # Auto-replace the old device ID with the new stable one.
-        if len(registered_devices) <= max_devices:
-            # For single-device plans, just replace the old ID
-            if max_devices == 1:
-                collection = await get_collection("license")
-                await collection.update_one(
-                    {"_id": "instance_license"},
-                    {"$set": {"devices": [device_id]}}
-                )
-                logger.info(f"Device ID migrated (single-device plan): {device_id[:12]}...")
-            else:
-                # Multi-device plan: add new device if under limit
-                collection = await get_collection("license")
-                await collection.update_one(
-                    {"_id": "instance_license"},
-                    {"$addToSet": {"devices": device_id}}
-                )
-                logger.info(f"New device auto-registered: {device_id[:12]}...")
+        # One-time migration for single-device plans:
+        # Old get_machine_id() used MAC address which was unstable.
+        # Allow ONE auto-migration to the new stable ID, then lock it.
+        # This prevents sharing — after migration, the device is fixed.
+        if max_devices == 1 and not license_doc.get("device_migrated"):
+            collection = await get_collection("license")
+            await collection.update_one(
+                {"_id": "instance_license"},
+                {
+                    "$set": {
+                        "devices": [device_id],
+                        "device_migrated": True,
+                    }
+                }
+            )
+            logger.info(f"Device ID migrated (one-time, single-device plan): {device_id[:12]}...")
+        elif len(registered_devices) < max_devices:
+            # Multi-device plan (online): auto-register if under limit
+            collection = await get_collection("license")
+            await collection.update_one(
+                {"_id": "instance_license"},
+                {"$addToSet": {"devices": device_id}}
+            )
+            logger.info(f"New device auto-registered: {device_id[:12]}...")
         else:
             return {
                 "valid": False,
@@ -358,6 +362,7 @@ async def check_license_status() -> Dict[str, Any]:
         "expires_at": license_doc.get("expires_at"),
         "device_count": len(license_doc.get("devices", [])),
     }
+
 
 
 
@@ -586,8 +591,12 @@ async def change_plan(new_plan: str, changed_by: str) -> Dict[str, Any]:
     }
 
 
+
 async def reset_devices(reset_by: str) -> Dict[str, Any]:
-    """Clear all registered devices (useful when customer changes machines)."""
+    """Clear all registered devices (useful when customer changes machines).
+
+    Also resets the one-time migration flag so the new machine can bind.
+    """
     license_doc = await get_license()
     if not license_doc:
         raise ValueError("No license found")
@@ -597,7 +606,7 @@ async def reset_devices(reset_by: str) -> Dict[str, Any]:
     await collection.update_one(
         {"_id": "instance_license"},
         {
-            "$set": {"devices": []},
+            "$set": {"devices": [], "device_migrated": False},
             "$push": {
                 "admin_actions": {
                     "action": "reset_devices",
@@ -610,6 +619,7 @@ async def reset_devices(reset_by: str) -> Dict[str, Any]:
     )
     logger.info(f"Devices reset — cleared {len(old_devices)} devices")
     return {"cleared": len(old_devices)}
+
 
 
 async def get_admin_log() -> list:
