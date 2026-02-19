@@ -91,7 +91,7 @@ async def api_restore_backup(request: Request, current_user: dict = Depends(get_
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/api/settings")
+
 async def api_save_settings(request: Request, current_user: dict = Depends(get_current_user)):
     """Save backup settings (mode, path, google folder id)."""
     body = await request.json()
@@ -100,12 +100,15 @@ async def api_save_settings(request: Request, current_user: dict = Depends(get_c
     sync_old = body.get("sync_old", False)
     google_folder_id = body.get("google_folder_id", "")
 
-    # For online mode, preserve existing google credentials from DB
+    # Always preserve existing google credentials regardless of mode change
+    # so switching offline→online doesn't lose the saved creds
     google_credentials = None
-    if mode == "online":
-        existing = await get_backup_settings()
-        if existing and existing.get("google_credentials"):
-            google_credentials = existing["google_credentials"]
+    existing = await get_backup_settings()
+    if existing and existing.get("google_credentials"):
+        google_credentials = existing["google_credentials"]
+    # Also preserve folder ID if not explicitly provided
+    if not google_folder_id and existing and existing.get("google_folder_id"):
+        google_folder_id = existing["google_folder_id"]
 
     settings = await save_backup_settings(
         mode=mode,
@@ -134,6 +137,7 @@ async def api_save_settings(request: Request, current_user: dict = Depends(get_c
         "settings": settings,
         "sync_result": sync_result,
     })
+
 
 
 @router.post("/api/google-save-creds")
