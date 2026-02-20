@@ -21,6 +21,47 @@
             <input type="hidden" name="redirect_url" value="{{ redirect_url }}">
             {% endif %}
 
+            <!-- GST Auto-fill Section -->
+            <div x-show="!gstVerified" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center gap-2 mb-3">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <h3 class="text-sm font-semibold text-blue-800">Quick Fill with GST Number</h3>
+                </div>
+                <p class="text-xs text-blue-700 mb-3">Enter GST number to auto-fill party name, address, and other details from the GST portal.</p>
+                <div class="flex gap-2">
+                    <div class="flex-1 relative">
+                        <input type="text" x-model="gstin" 
+                            @input="gstin = gstin.toUpperCase(); validateGST();" 
+                            @paste="$nextTick(() => { gstin = gstin.toUpperCase(); validateGST(); })"
+                            maxlength="15" 
+                            class="w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 uppercase font-mono" 
+                            :class="gstError ? 'border-red-500' : 'border-gray-300'" 
+                            placeholder="Enter 15-digit GSTIN">
+                    </div>
+                    <button type="button" @click="fetchGSTDetails()" 
+                        :disabled="!gstin || gstin.length !== 15 || gstError || gstModalOpen"
+                        class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Verify & Auto-fill
+                    </button>
+                </div>
+                <p x-show="gstError" class="text-xs text-red-600 mt-1" x-text="gstError"></p>
+                <p class="text-xs text-blue-600 mt-1">Or skip this and fill the form manually below.</p>
+            </div>
+
+            <!-- GST Verified Banner -->
+            <div x-show="gstVerified" class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span class="text-sm font-semibold text-green-800">GST Verified</span>
+                        <span class="text-xs text-green-700 font-mono" x-text="gstin"></span>
+                    </div>
+                    <button type="button" @click="gstVerified = false; gstInfo = ''" class="text-xs text-green-700 hover:text-green-900 underline">Change</button>
+                </div>
+                <p x-show="gstInfo" class="text-xs text-green-700 mt-1" x-text="gstInfo"></p>
+            </div>
+
             <!-- Party Details -->
             <div>
                 <h3 class="text-base font-semibold text-gray-900 mb-3 border-b pb-2">Party Details</h3>
@@ -49,6 +90,34 @@
                         <input type="text" name="party_code" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50" placeholder="Auto-generated">
                     </div>
 
+                    <!-- Hidden GST field for form submission -->
+                    <input type="hidden" name="gstin" :value="gstin">
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">GST No.</label>
+                        <div class="relative">
+                            <input type="text" x-model="gstin" 
+                                @input="gstin = gstin.toUpperCase(); validateGST();" 
+                                maxlength="15" 
+                                class="w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 uppercase font-mono" 
+                                :class="gstError ? 'border-red-500' : (gstVerified ? 'border-green-400 bg-green-50' : 'border-gray-300')" 
+                                placeholder="22AAAAA0000A1Z5">
+                            <div x-show="gstVerified" class="absolute right-2 top-1/2 -translate-y-1/2 text-green-500">✓</div>
+                        </div>
+                        <p x-show="gstError" class="text-xs text-red-600 mt-1" x-text="gstError"></p>
+                        <div x-show="gstin.length === 15 && !gstError && !gstVerified" class="mt-1">
+                            <button type="button" @click="fetchGSTDetails()" class="text-xs text-blue-600 hover:text-blue-800 underline">Verify & Auto-fill from GST portal</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">PAN</label>
+                        <input type="text" name="pan" x-model="pan" maxlength="10" 
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 uppercase font-mono" 
+                            :class="gstVerified && pan ? 'bg-green-50 border-green-400' : ''"
+                            placeholder="AAAAA0000A">
+                    </div>
+
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Delivery Address</label>
                         <textarea name="delivery_address" x-model="deliveryAddress" @input="syncToOffice" rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
@@ -75,26 +144,6 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">GST No.</label>
-                        <div class="relative">
-                            <input type="text" name="gstin" x-model="gstin" 
-                                @input="gstin = gstin.toUpperCase(); validateGST(); if(gstin.length === 15 && !gstError && !gstVerified && !gstModalOpen) { $nextTick(() => fetchGSTDetails()); }" 
-                                @blur="if(gstin.length === 15 && !gstError && !gstVerified) fetchGSTDetails()" 
-                                @paste="$nextTick(() => { if(gstin.length === 15 && !gstError && !gstVerified && !gstModalOpen) fetchGSTDetails(); })"
-                                maxlength="15" 
-                                class="w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500 uppercase" 
-                                :class="gstError ? 'border-red-500' : 'border-gray-300'" 
-                                placeholder="22AAAAA0000A1Z5">
-                            <div x-show="gstLoading" class="absolute right-2 top-1/2 -translate-y-1/2">
-                                <svg class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                            </div>
-                            <div x-show="gstVerified" class="absolute right-2 top-1/2 -translate-y-1/2 text-green-500">✓</div>
-                        </div>
-                        <p x-show="gstError" class="text-xs text-red-600 mt-1" x-text="gstError"></p>
-                        <p x-show="gstInfo" class="text-xs text-green-600 mt-1" x-text="gstInfo"></p>
-                    </div>
-
-                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
                         <input type="text" name="phone" x-model="phone" @input="validateMobile" maxlength="10" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                         <p x-show="mobileError" class="text-xs text-red-600 mt-1" x-text="mobileError"></p>
@@ -103,13 +152,13 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Broker</label>
                         <div class="flex gap-2">
-                            <select name="broker_id" x-model="brokerId" @change="toggleBrokerage" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                            <select name="broker_id" x-ref="brokerSelect" x-model="brokerId" @change="toggleBrokerage" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                                 <option value="">NONE</option>
                                 {% for broker in brokers %}
                                 <option value="{{ broker._id }}">{{ broker.name }}</option>
                                 {% endfor %}
                             </select>
-                            <button type="button" @click="showBrokerModal = true" class="px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700">+ Add</button>
+                            <button type="button" @click="addBrokerRedirect()" class="px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700">+ Add</button>
                         </div>
                     </div>
 
@@ -186,29 +235,6 @@
             </div>
         </form>
     </div>
-
-    <!-- Broker Modal -->
-    <div x-show="showBrokerModal" x-effect="if(showBrokerModal) { brokerNameError = ''; brokerPhoneError = ''; $nextTick(() => $refs.brokerNameInput.focus()); }" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md" @click.away="showBrokerModal = false">
-            <h3 class="text-lg font-semibold mb-4">Add New Broker</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Broker Name *</label>
-                    <input type="text" x-ref="brokerNameInput" x-model="newBrokerName" @input="brokerNameError = ''" :class="brokerNameError ? 'border-red-500' : 'border-gray-300'" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
-                    <span x-show="brokerNameError" x-text="brokerNameError" class="text-xs text-red-600 block"></span>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-                    <input type="text" x-model="newBrokerPhone" @input="brokerPhoneError = ''" maxlength="10" :class="brokerPhoneError ? 'border-red-500' : 'border-gray-300'" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
-                    <span x-show="brokerPhoneError" x-text="brokerPhoneError" class="text-xs text-red-600 block"></span>
-                </div>
-            </div>
-            <div class="flex gap-3 justify-end mt-6">
-                <button type="button" @click="showBrokerModal = false" class="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
-                <button type="button" @click="saveBroker" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock %}
 
@@ -216,7 +242,7 @@
 <script>
 function partyForm() {
     return {
-        name: '',
+        name: '{{ default_name or "" }}',
         nameError: '',
         partyType: '{{ default_type or "" }}',
         partyTypeSearch: '{{ {"customer":"Customer","supplier":"Supplier","both":"Both","broker":"Broker","transporter":"Transporter"}.get(default_type, "") }}',
@@ -232,6 +258,7 @@ function partyForm() {
         partyTypeSelectedIndex: 0,
         phone: '',
         gstin: '',
+        pan: '',
         deliveryAddress: '',
         deliveryCity: 'Surat',
         deliveryPincode: '',
@@ -254,11 +281,15 @@ function partyForm() {
         pincodeError: '',
         dharaDayError: '',
         interestError: '',
-        showBrokerModal: false,
-        newBrokerName: '',
-        newBrokerPhone: '',
-        brokerNameError: '',
-        brokerPhoneError: '',
+
+        init() {
+            if (sessionStorage.getItem('focusBrokerSelect')) {
+                sessionStorage.removeItem('focusBrokerSelect');
+                this.$nextTick(() => {
+                    if (this.$refs.brokerSelect) this.$refs.brokerSelect.focus();
+                });
+            }
+        },
 
         filterPartyTypes() {
             const search = (this.partyTypeSearch || '').toLowerCase();
@@ -350,9 +381,14 @@ function partyForm() {
             const gstVerification = new GSTVerification();
             
             gstVerification.showVerificationModal(this.gstin, (data) => {
-                // Auto-fill form with verified data
+                // Auto-fill party name
                 if (!self.name.trim() && (data.trade_name || data.legal_name)) {
                     self.name = data.trade_name || data.legal_name;
+                }
+                
+                // Extract PAN from GSTIN (characters 3-12)
+                if (!self.pan.trim() && self.gstin.length === 15) {
+                    self.pan = self.gstin.substring(2, 12);
                 }
                 
                 // Auto-fill delivery address
@@ -461,54 +497,39 @@ function partyForm() {
             return true;
         },
 
-        async saveBroker() {
-            this.brokerNameError = '';
-            this.brokerPhoneError = '';
-            let hasError = false;
-            if (!this.newBrokerName.trim()) { this.brokerNameError = 'Broker Name is required'; hasError = true; }
-            if (this.newBrokerPhone && this.newBrokerPhone.trim() && !/^\d{10}$/.test(this.newBrokerPhone.trim())) { this.brokerPhoneError = 'Mobile must be 10 digits'; hasError = true; }
-            if (hasError) return;
-
-            try {
-                const res = await fetch('/parties/quick-add', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        name: this.newBrokerName,
-                        phone: this.newBrokerPhone || '',
-                        party_type: 'broker'
-                    })
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const select = document.querySelector('select[name="broker_id"]');
-                    const option = document.createElement('option');
-                    option.value = data.id;
-                    option.text = data.name;
-                    option.selected = true;
-                    select.add(option);
-                    this.brokerId = data.id;
-                    this.showBrokerModal = false;
-                    this.newBrokerName = '';
-                    this.newBrokerPhone = '';
-                } else {
-                    alert('Failed to add broker');
-                }
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
+        addBrokerRedirect() {
+            const params = new URLSearchParams();
+            if (this.name) params.set('name', this.name);
+            if (this.partyType) params.set('type', this.partyType);
+            const currentParams = new URLSearchParams(window.location.search);
+            const originalRedirect = currentParams.get('redirect');
+            if (originalRedirect) params.set('redirect', originalRedirect);
+            const redirectBack = '/parties/create?' + params.toString();
+            sessionStorage.setItem('focusBrokerSelect', 'true');
+            window.location.href = '/parties/create?type=broker&redirect=' + encodeURIComponent(redirectBack);
         },
 
         resetForm() {
             this.name = '';
             this.phone = '';
             this.gstin = '';
+            this.pan = '';
             this.deliveryPincode = '';
+            this.deliveryAddress = '';
+            this.deliveryCity = 'Surat';
+            this.deliveryState = 'GUJARAT';
+            this.officeAddress = '';
+            this.officeCity = 'Surat';
+            this.officePincode = '';
+            this.officeState = 'GUJARAT';
+            this.officeTouched = false;
             this.brokerId = '';
             this.brokerage = 0;
             this.dharaDay = '';
             this.interest = '';
+            this.gstVerified = false;
+            this.gstInfo = '';
+            this.gstError = '';
             document.querySelector('form').reset();
         }
     }

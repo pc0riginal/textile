@@ -58,21 +58,23 @@ async def list_parties(
     })
     return templates.TemplateResponse("parties/list.html", context)
 
+
 @router.get("/create")
 async def create_party_form(
     request: Request,
     current_user: dict = Depends(get_current_user),
     current_company: dict = Depends(get_current_company),
     type: Optional[str] = Query(None),
-    redirect: Optional[str] = Query(None)
+    redirect: Optional[str] = Query(None),
+    name: Optional[str] = Query(None),
 ):
     parties_collection = await get_collection("parties")
-    
+
     brokers = await parties_collection.find({
         "company_id": current_company["_id"],
         "party_type": "broker"
     }).sort("name", 1).to_list(None)
-    
+
     indian_states = [
         "ANDHRA PRADESH", "ARUNACHAL PRADESH", "ASSAM", "BIHAR", "CHHATTISGARH",
         "GOA", "GUJARAT", "HARYANA", "HIMACHAL PRADESH", "JHARKHAND", "KARNATAKA",
@@ -80,7 +82,7 @@ async def create_party_form(
         "NAGALAND", "ODISHA", "PUNJAB", "RAJASTHAN", "SIKKIM", "TAMIL NADU",
         "TELANGANA", "TRIPURA", "UTTAR PRADESH", "UTTARAKHAND", "WEST BENGAL"
     ]
-    
+
     return templates.TemplateResponse("parties/create.html", {
         "request": request,
         "current_user": current_user,
@@ -88,6 +90,7 @@ async def create_party_form(
         "brokers": brokers,
         "indian_states": indian_states,
         "default_type": type,
+        "default_name": name or "",
         "redirect_url": redirect,
         "breadcrumbs": [
             {"name": "Dashboard", "url": "/dashboard"},
@@ -95,6 +98,7 @@ async def create_party_form(
             {"name": "Create", "url": "/parties/create"}
         ]
     })
+
 
 @router.post("/create")
 async def create_party(

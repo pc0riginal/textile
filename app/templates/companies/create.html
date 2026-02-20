@@ -19,6 +19,44 @@
         {% endif %}
 
         <form method="POST" action="/companies/create" class="space-y-6" onsubmit="return validateForm()">
+            <!-- GST Auto-fill Section -->
+            <div id="gst-autofill-section" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center gap-2 mb-3">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <h3 class="text-sm font-semibold text-blue-800">Quick Fill with GST Number</h3>
+                </div>
+                <p class="text-xs text-blue-700 mb-3">Enter your company's GST number to auto-fill name, PAN, address, and other details from the GST portal.</p>
+                <div class="flex gap-2">
+                    <div class="flex-1 relative">
+                        <input type="text" id="gst-quick-input" maxlength="15" 
+                               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 uppercase font-mono" 
+                               placeholder="Enter 15-digit GSTIN"
+                               oninput="this.value = this.value.toUpperCase(); updateQuickGSTBtn();"
+                               onpaste="setTimeout(() => { this.value = this.value.toUpperCase(); updateQuickGSTBtn(); }, 0);">
+                    </div>
+                    <button type="button" id="gst-quick-btn" onclick="quickVerifyGST()" disabled
+                        class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Verify & Auto-fill
+                    </button>
+                </div>
+                <p id="gst-quick-error" class="text-xs text-red-600 mt-1 hidden"></p>
+                <p class="text-xs text-blue-600 mt-1">Or skip this and fill the form manually below.</p>
+            </div>
+
+            <!-- GST Verified Banner -->
+            <div id="gst-verified-banner" class="bg-green-50 border border-green-200 rounded-lg p-4 hidden">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span class="text-sm font-semibold text-green-800">GST Verified</span>
+                        <span id="gst-verified-gstin" class="text-xs text-green-700 font-mono"></span>
+                    </div>
+                    <button type="button" onclick="resetGSTVerification()" class="text-xs text-green-700 hover:text-green-900 underline">Change</button>
+                </div>
+                <p id="gst-verified-name" class="text-xs text-green-700 mt-1"></p>
+            </div>
+
             <!-- Basic Information -->
             <div>
                 <h3 class="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">Basic Information</h3>
@@ -35,21 +73,21 @@
                         <label for="gstin" class="block text-sm font-medium text-gray-700 mb-2">GSTIN *</label>
                         <div class="relative">
                             <input type="text" id="gstin" name="gstin" maxlength="15" required
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
-                                   placeholder="22AAAAA0000A1Z5" oninput="this.value = this.value.toUpperCase(); validateCompanyField('gstin'); autoFetchGST(this.value);" onblur="validateCompanyField('gstin')">
-                            <div id="gstin-spinner" class="absolute right-2 top-1/2 -translate-y-1/2 hidden">
-                                <svg class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                            </div>
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase font-mono"
+                                   placeholder="22AAAAA0000A1Z5" oninput="this.value = this.value.toUpperCase(); validateCompanyField('gstin');" onblur="validateCompanyField('gstin')">
                             <div id="gstin-check" class="absolute right-2 top-1/2 -translate-y-1/2 text-green-500 hidden">✓</div>
                         </div>
                         <span id="gstin-error" class="text-xs text-red-600 hidden"></span>
                         <span id="gstin-info" class="text-xs text-green-600 hidden"></span>
+                        <span id="gstin-verify-link" class="hidden">
+                            <button type="button" onclick="verifyGSTFromField()" class="text-xs text-blue-600 hover:text-blue-800 underline mt-1">Verify & Auto-fill from GST portal</button>
+                        </span>
                     </div>
                     
                     <div>
                         <label for="pan" class="block text-sm font-medium text-gray-700 mb-2">PAN</label>
                         <input type="text" id="pan" name="pan" maxlength="10"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase font-mono"
                                placeholder="AAAAA0000A" oninput="this.value = this.value.toUpperCase(); validateCompanyField('pan')">
                         <span id="pan-error" class="text-xs text-red-600 hidden"></span>
                     </div>
@@ -173,6 +211,9 @@
 
 {% block scripts %}
 <script>
+// Track GST verification state
+let companyGSTVerified = false;
+
 // Set current financial year on page load
 document.addEventListener('DOMContentLoaded', function() {
     const today = new Date();
@@ -195,6 +236,13 @@ function validateCompanyField(id) {
         if (!val) { showError(id, 'GSTIN is required'); return false; }
         if (val.length !== 15) { showError(id, 'GSTIN must be exactly 15 characters'); return false; }
         if (!/^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][A-Z\d]$/.test(val)) { showError(id, 'Invalid GSTIN format (e.g. 22AAAAA0000A1Z5)'); return false; }
+        // Show verify link if not yet verified
+        const verifyLink = document.getElementById('gstin-verify-link');
+        if (!companyGSTVerified && val.length === 15) {
+            verifyLink.classList.remove('hidden');
+        } else {
+            verifyLink.classList.add('hidden');
+        }
     }
     if (id === 'pan' && val) {
         if (val.length !== 10) { showError(id, 'PAN must be exactly 10 characters'); return false; }
@@ -242,67 +290,130 @@ function clearError(fieldId) {
     if (error) { error.textContent = ''; error.classList.add('hidden'); }
 }
 
-// GST auto-fill for company form
-let gstFetchTimer = null;
-async function autoFetchGST(gstin) {
-    clearTimeout(gstFetchTimer);
-    const spinner = document.getElementById('gstin-spinner');
-    const check = document.getElementById('gstin-check');
-    const info = document.getElementById('gstin-info');
-    check.classList.add('hidden');
-    info.classList.add('hidden');
-    info.textContent = '';
+// Quick GST input validation for the top section
+function updateQuickGSTBtn() {
+    const input = document.getElementById('gst-quick-input');
+    const btn = document.getElementById('gst-quick-btn');
+    const error = document.getElementById('gst-quick-error');
+    const val = input.value.trim();
+    error.classList.add('hidden');
+    
+    if (val.length === 15) {
+        if (!/^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][A-Z\d]$/.test(val)) {
+            error.textContent = 'Invalid GSTIN format';
+            error.classList.remove('hidden');
+            btn.disabled = true;
+        } else {
+            btn.disabled = false;
+        }
+    } else {
+        btn.disabled = true;
+    }
+}
 
+// Quick verify from the top section
+function quickVerifyGST() {
+    const gstin = document.getElementById('gst-quick-input').value.trim().toUpperCase();
     if (!gstin || gstin.length !== 15) return;
-    if (!/^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][A-Z\d]$/.test(gstin)) return;
+    
+    // Copy GSTIN to the actual form field
+    document.getElementById('gstin').value = gstin;
+    
+    // Trigger verification
+    doGSTVerification(gstin);
+}
 
-    gstFetchTimer = setTimeout(async () => {
-        // Use the new GST verification modal with captcha
-        const gstVerification = new GSTVerification();
+// Verify from the GSTIN field's inline link
+function verifyGSTFromField() {
+    const gstin = document.getElementById('gstin').value.trim().toUpperCase();
+    if (!gstin || gstin.length !== 15) return;
+    doGSTVerification(gstin);
+}
+
+// Shared GST verification logic
+function doGSTVerification(gstin) {
+    if (typeof GSTVerification === 'undefined') {
+        console.error('GSTVerification not loaded');
+        return;
+    }
+    
+    const gstVerification = new GSTVerification();
+    
+    gstVerification.showVerificationModal(gstin, (data) => {
+        // Auto-fill company name
+        const nameField = document.getElementById('name');
+        if (nameField && !nameField.value.trim() && (data.trade_name || data.legal_name)) {
+            nameField.value = data.trade_name || data.legal_name;
+        }
         
-        gstVerification.showVerificationModal(gstin, (data) => {
-            // Auto-fill form with verified data
-            const nameField = document.getElementById('name');
-            if (nameField && !nameField.value.trim() && (data.trade_name || data.legal_name)) {
-                nameField.value = data.trade_name || data.legal_name;
-            }
-            
-            const panField = document.getElementById('pan');
-            if (panField && !panField.value.trim() && data.legal_name) {
-                // Extract PAN from GSTIN (characters 3-12)
-                const pan = gstin.substring(2, 12);
-                panField.value = pan;
-            }
-            
-            const addr1 = document.getElementById('address_line1');
-            if (addr1 && !addr1.value.trim() && data.address) {
-                addr1.value = data.address;
-            }
-            
-            const cityField = document.getElementById('city');
-            if (cityField && !cityField.value.trim() && data.city) {
-                cityField.value = data.city;
-            }
-            
-            const stateField = document.getElementById('state');
-            if (stateField && !stateField.value.trim() && data.state) {
-                stateField.value = data.state;
-            }
-            
-            const pincodeField = document.getElementById('pincode');
-            if (pincodeField && !pincodeField.value.trim() && data.pincode) {
-                pincodeField.value = data.pincode;
-            }
-            
-            check.classList.remove('hidden');
-            info.textContent = `✓ ${data.legal_name || data.trade_name}`;
-            info.classList.remove('hidden');
-            
-            if (typeof showToast === 'function') {
-                showToast('GST details verified and auto-filled successfully', 'success');
-            }
-        });
-    }, 300);
+        // Extract PAN from GSTIN (characters 3-12)
+        const panField = document.getElementById('pan');
+        if (panField && !panField.value.trim()) {
+            panField.value = gstin.substring(2, 12);
+        }
+        
+        // Auto-fill GSTIN field
+        document.getElementById('gstin').value = gstin;
+        
+        // Auto-fill address
+        const addr1 = document.getElementById('address_line1');
+        if (addr1 && !addr1.value.trim() && data.address) {
+            addr1.value = data.address;
+        }
+        
+        const cityField = document.getElementById('city');
+        if (cityField && !cityField.value.trim() && data.city) {
+            cityField.value = data.city;
+        }
+        
+        const stateField = document.getElementById('state');
+        if (stateField && !stateField.value.trim() && data.state) {
+            stateField.value = data.state;
+        }
+        
+        const pincodeField = document.getElementById('pincode');
+        if (pincodeField && !pincodeField.value.trim() && data.pincode) {
+            pincodeField.value = data.pincode;
+        }
+        
+        // Update UI state
+        companyGSTVerified = true;
+        
+        // Show verified banner, hide auto-fill section
+        document.getElementById('gst-autofill-section').classList.add('hidden');
+        const banner = document.getElementById('gst-verified-banner');
+        banner.classList.remove('hidden');
+        document.getElementById('gst-verified-gstin').textContent = gstin;
+        document.getElementById('gst-verified-name').textContent = '✓ ' + (data.legal_name || data.trade_name);
+        
+        // Show checkmark on GSTIN field
+        document.getElementById('gstin-check').classList.remove('hidden');
+        const info = document.getElementById('gstin-info');
+        info.textContent = '✓ ' + (data.legal_name || data.trade_name);
+        info.classList.remove('hidden');
+        document.getElementById('gstin-verify-link').classList.add('hidden');
+        
+        // Highlight auto-filled fields briefly
+        document.getElementById('gstin').classList.add('border-green-400', 'bg-green-50');
+        if (panField.value) panField.classList.add('border-green-400', 'bg-green-50');
+        
+        if (typeof showToast === 'function') {
+            showToast('GST details verified and auto-filled successfully', 'success');
+        }
+    });
+}
+
+// Reset GST verification state
+function resetGSTVerification() {
+    companyGSTVerified = false;
+    document.getElementById('gst-autofill-section').classList.remove('hidden');
+    document.getElementById('gst-verified-banner').classList.add('hidden');
+    document.getElementById('gstin-check').classList.add('hidden');
+    document.getElementById('gstin-info').classList.add('hidden');
+    document.getElementById('gstin').classList.remove('border-green-400', 'bg-green-50');
+    document.getElementById('pan').classList.remove('border-green-400', 'bg-green-50');
+    document.getElementById('gst-quick-input').value = '';
+    document.getElementById('gst-quick-input').focus();
 }
 </script>
 
