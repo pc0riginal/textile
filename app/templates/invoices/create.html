@@ -248,148 +248,6 @@
         </div>
     </div>
 
-    <!-- Party Modal -->
-    <div x-show="showPartyModal" x-effect="if(showPartyModal) { partyErrors = {}; $nextTick(() => $refs.partyNameInput.focus()); }" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;" @click.self="showPartyModal = false">
-        <div class="bg-white rounded-lg p-4 w-full max-w-6xl max-h-[95vh] overflow-y-auto">
-            <h3 class="text-base font-bold mb-3">Party Name Form</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- LEFT SIDE: Party Details -->
-                <div>
-                    <h4 class="text-xs font-semibold text-gray-900 mb-2 border-b pb-1">Party Details</h4>
-                    <div class="space-y-2">
-                        <div>
-                            <label class="block text-xs font-medium mb-0.5">Party Name *</label>
-                            <input type="text" x-ref="partyNameInput" x-model="newParty.name" @input="delete partyErrors.name" :class="partyErrors.name ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                            <span x-show="partyErrors.name" x-text="partyErrors.name" class="text-xs text-red-600 block"></span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">Party Type *</label>
-                                <select x-model="newParty.party_type" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                                    <option value="customer">Customer</option>
-                                    <option value="supplier">Supplier</option>
-                                    <option value="both">Both</option>
-                                    <option value="broker">Broker</option>
-                                    <option value="transporter">Transporter</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">Party Code</label>
-                                <input type="text" x-model="newParty.party_code" placeholder="Auto-generated" class="w-full px-2 py-1.5 text-xs border rounded-md bg-gray-50">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium mb-0.5">Delivery Address</label>
-                            <textarea x-model="newParty.delivery_address" @input="if(!newParty._officeTouched){newParty.office_address=newParty.delivery_address}" rows="1.5" class="w-full px-2 py-1.5 text-xs border rounded-md"></textarea>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">City</label>
-                                <input type="text" x-model="newParty.delivery_city" @input="if(!newParty._officeTouched){newParty.office_city=newParty.delivery_city}" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">Pin Code</label>
-                                <input type="text" x-model="newParty.delivery_pincode" @input="if(!newParty._officeTouched){newParty.office_pincode=newParty.delivery_pincode}; delete partyErrors.delivery_pincode" maxlength="6" :class="partyErrors.delivery_pincode ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                                <span x-show="partyErrors.delivery_pincode" x-text="partyErrors.delivery_pincode" class="text-xs text-red-600 block"></span>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">State</label>
-                                <select x-model="newParty.delivery_state" @change="if(!newParty._officeTouched){newParty.office_state=newParty.delivery_state}" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                                    <template x-for="state in indianStates" :key="state">
-                                        <option :value="state" x-text="state"></option>
-                                    </template>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">GST No.</label>
-                                <input type="text" x-model="newParty.gstin" @input="delete partyErrors.gstin" maxlength="15" placeholder="22AAAAA0000A1Z5" :class="partyErrors.gstin ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                                <span x-show="partyErrors.gstin" x-text="partyErrors.gstin" class="text-xs text-red-600 block"></span>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium mb-0.5">Mobile Number</label>
-                            <input type="text" x-model="newParty.phone" @input="delete partyErrors.phone" maxlength="10" :class="partyErrors.phone ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                            <span x-show="partyErrors.phone" x-text="partyErrors.phone" class="text-xs text-red-600 block"></span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">Broker</label>
-                                <div class="flex gap-1">
-                                    <select x-model="newParty.broker_id" class="flex-1 px-2 py-1.5 text-xs border rounded-md">
-                                        <option value="">NONE</option>
-                                        <template x-for="broker in brokers" :key="broker.id">
-                                            <option :value="broker.id" x-text="broker.name"></option>
-                                        </template>
-                                    </select>
-                                    <button type="button" @click="openBrokerModal" class="px-2 py-1.5 text-xs bg-green-600 text-white rounded-md hover:bg-green-700">+</button>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">Brokerage</label>
-                                <input type="number" step="0.01" x-model="newParty.brokerage" :disabled="!newParty.broker_id" class="w-full px-2 py-1.5 text-xs border rounded-md" :class="!newParty.broker_id ? 'bg-gray-100' : ''">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- RIGHT SIDE: Office & Financial -->
-                <div>
-                    <h4 class="text-xs font-semibold text-gray-900 mb-2 border-b pb-1">Office Details</h4>
-                    <div class="space-y-2">
-                        <div>
-                            <label class="block text-xs font-medium mb-0.5">Office Address</label>
-                            <textarea x-model="newParty.office_address" @input="newParty._officeTouched=true" rows="1.5" class="w-full px-2 py-1.5 text-xs border rounded-md"></textarea>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">City</label>
-                                <input type="text" x-model="newParty.office_city" @input="newParty._officeTouched=true" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">Pin Code</label>
-                                <input type="text" x-model="newParty.office_pincode" @input="newParty._officeTouched=true; delete partyErrors.office_pincode" maxlength="6" :class="partyErrors.office_pincode ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                                <span x-show="partyErrors.office_pincode" x-text="partyErrors.office_pincode" class="text-xs text-red-600 block"></span>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">State</label>
-                                <select x-model="newParty.office_state" @change="newParty._officeTouched=true" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                                    <template x-for="state in indianStates" :key="state">
-                                        <option :value="state" x-text="state"></option>
-                                    </template>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">Email</label>
-                                <input type="email" x-model="newParty.email" @input="delete partyErrors.email" :class="partyErrors.email ? 'border-red-500' : ''" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                                <span x-show="partyErrors.email" x-text="partyErrors.email" class="text-xs text-red-600 block"></span>
-                            </div>
-                        </div>
-                    </div>
-                    <h4 class="text-xs font-semibold text-gray-900 mb-2 border-b pb-1 mt-3">Financial Settings</h4>
-                    <div class="space-y-2">
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">Dhara Day</label>
-                                <input type="number" x-model="newParty.dhara_day" placeholder="0" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-0.5">Interest (%)</label>
-                                <input type="number" step="0.01" x-model="newParty.interest" placeholder="0.00" class="w-full px-2 py-1.5 text-xs border rounded-md">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-span-2 flex gap-2 justify-end mt-3 pt-3 border-t">
-                <button type="button" @click="showPartyModal = false" class="px-3 py-1.5 text-xs bg-gray-100 rounded-md">Cancel</button>
-                <button type="button" @click="saveParty" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md">Save Party</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Quality Modal -->
     <div x-show="showQualityModal" x-effect="if(showQualityModal) { qualityErrors = {}; $nextTick(() => $refs.qualityNameInput.focus()); }" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" style="display: none;">
         <div class="bg-white rounded-lg p-6 w-full max-w-md" @click.away="showQualityModal = false">
@@ -483,7 +341,18 @@ function invoiceForm() {
             await this.loadParties();
             await this.loadQualities();
             await this.loadBrokers();
-            this.$nextTick(() => this.$refs.companyField.focus());
+            
+            // Focus party dropdown if redirected back after adding a party
+            if (sessionStorage.getItem('focusPartyDropdown')) {
+                sessionStorage.removeItem('focusPartyDropdown');
+                this.$nextTick(() => {
+                    this.$refs.partyInput.focus();
+                    this.showPartyDropdown = true;
+                    this.filterParties();
+                });
+            } else {
+                this.$nextTick(() => this.$refs.companyField.focus());
+            }
             
             // Ctrl+S to save invoice
             document.addEventListener('keydown', (e) => {
@@ -590,39 +459,10 @@ function invoiceForm() {
         },
         
         openPartyModal() {
-            this.showPartyModal = true;
-            this.showPartyDropdown = false;
-            this.newParty = {name: this.partySearch, party_type: 'customer', party_code: '', gstin: '', phone: '', delivery_address: '', delivery_city: 'Surat', delivery_pincode: '', delivery_state: 'GUJARAT', office_address: '', office_city: 'Surat', office_pincode: '', office_state: 'GUJARAT', email: '', broker_id: '', brokerage: 0, dhara_day: 0, interest: 0, _officeTouched: false};
-        },
-        
-        async saveParty() {
-            this.partyErrors = {};
-            if (!this.newParty.name || !this.newParty.name.trim()) this.partyErrors.name = 'Party Name is required';
-            if (this.newParty.phone && this.newParty.phone.trim() && !/^\d{10}$/.test(this.newParty.phone.trim())) this.partyErrors.phone = 'Mobile must be 10 digits';
-            if (this.newParty.gstin && this.newParty.gstin.trim() && !/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/i.test(this.newParty.gstin.trim())) this.partyErrors.gstin = 'GSTIN format invalid';
-            if (this.newParty.delivery_pincode && this.newParty.delivery_pincode.trim() && !/^\d{6}$/.test(this.newParty.delivery_pincode.trim())) this.partyErrors.delivery_pincode = 'Pin Code must be 6 digits';
-            if (this.newParty.office_pincode && this.newParty.office_pincode.trim() && !/^\d{6}$/.test(this.newParty.office_pincode.trim())) this.partyErrors.office_pincode = 'Pin Code must be 6 digits';
-            if (this.newParty.email && this.newParty.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.newParty.email.trim())) this.partyErrors.email = 'Email format invalid';
-            if (Object.keys(this.partyErrors).length > 0) return;
-            try {
-                const res = await fetch('/parties/api/quick-add', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({...this.newParty, party_type: this.newParty.party_type || 'customer'})
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    await this.loadParties();
-                    const newParty = this.parties.find(p => p._id === data.id);
-                    if (newParty) this.selectParty(newParty);
-                    this.showPartyModal = false;
-                    this.newParty = {name: '', party_type: 'customer', party_code: '', gstin: '', phone: '', delivery_address: '', delivery_city: 'Surat', delivery_pincode: '', delivery_state: 'GUJARAT', office_address: '', office_city: 'Surat', office_pincode: '', office_state: 'GUJARAT', email: '', broker_id: '', brokerage: 0, dhara_day: 0, interest: 0, _officeTouched: false};
-                    this.$nextTick(() => this.$refs.partyInput.focus());
-                } else {
-                    const err = await res.json().catch(() => null);
-                    alert(err?.detail || 'Failed to add party');
-                }
-            } catch (e) { alert('Error: ' + e.message); }
+            const name = encodeURIComponent(this.partySearch || '');
+            const redirect = encodeURIComponent(window.location.pathname);
+            sessionStorage.setItem('focusPartyDropdown', 'true');
+            window.location.href = `/parties/create?name=${name}&type=customer&redirect=${redirect}`;
         },
         
         openBrokerModal() {
