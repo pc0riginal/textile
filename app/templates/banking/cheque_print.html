@@ -78,7 +78,8 @@ function printCheque() {
     var printWindow = window.open('', '_blank');
     var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cheque Print</title>' +
         '<style>*{margin:0;padding:0;box-sizing:border-box}' +
-        'body{font-family:Arial,sans-serif;padding:0;background:white;margin:0}' +
+        '@page{size:202mm 92mm;margin:0}' +
+        'body{font-family:Arial,sans-serif;padding:0;background:white;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
         '.cheque-container{width:202mm;height:92mm;margin:0 auto;background:white;position:relative}' +
         '.ac-payee{position:absolute;top:12mm;left:80mm;font-size:10px;font-weight:bold;border:2px solid #000;padding:2px 6px}' +
         '.cheque-date{position:absolute;top:11mm;right:10mm;font-size:16px;font-weight:bold;letter-spacing:2.7mm;font-family:"Courier New",monospace}' +
@@ -86,10 +87,10 @@ function printCheque() {
         '.amount-words{text-wrap:auto;position:absolute;top:35mm;left:10mm;font-size:17px;font-weight:600;max-width:130mm;line-height:1.4;text-transform:capitalize}' +
         '.amount-figures{position:absolute;top:40mm;left:20mm;right:10mm;font-size:16px;font-weight:bold;font-family:"Courier New",monospace;padding:2mm 3mm;min-width:40mm;text-align:right;color:#000}' +
         '.bill-number{position:absolute;bottom:10mm;left:40%;transform:translateX(-50%);font-size:11px}' +
-        '@media print{body{margin:0;padding:0}#pi{display:none!important}@page{size:202mm 92mm;margin:0}.cheque-container{page-break-after:always;margin:0}}' +
+        '@media print{body{margin:0;padding:0}#pi{display:none!important}.cheque-container{page-break-after:always;margin:0}}' +
         '</style></head><body>' +
-        '<div id="pi" style="background:#fffbeb;border-bottom:2px solid #f59e0b;padding:8px 16px;font-family:Arial;font-size:13px;">' +
-        '⚠️ Print settings: Select <b>Margins → Default</b> and Paper size <b>202×92 mm</b> (or closest). Uncheck "Headers and footers".' +
+        '<div id="pi" style="background:#ecfdf5;border-bottom:2px solid #10b981;padding:8px 16px;font-family:Arial;font-size:13px;">' +
+        '✅ Paper size is set to <b>202×92 mm (Cheque)</b> automatically. Just click Print. Uncheck "Headers and footers" if visible.' +
         '</div>' +
         '<div class="cheque-container">' +
         '<div class="ac-payee">A/C PAYEE</div>' +

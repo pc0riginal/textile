@@ -638,7 +638,8 @@ function paymentForm() {
                 '.amount-words{text-align:center;font-size:30px;margin-top:10px;margin-left:10px}' +
                 '.rupees{display:flex;justify-content:space-between;margin-top:30px;font-size:20px}' +
                 '.billno{margin-top:50px;font-size:20px;text-align:center}' +
-                '@media print{body{margin:0}.cheque{border:none;width:100%;padding:20px}}' +
+                '@page{size:202mm 92mm;margin:0}' +
+                '@media print{body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}.cheque{border:none;width:100%;padding:20px}}' +
                 '</style></head><body><div class="cheque">' +
                 '<div class="top-row"><div>A/C PAYEE</div><div>Transfer 3rd Day</div>' +
                 '<div>' + paymentDate.split('-').reverse().join(' ') + '</div></div>' +

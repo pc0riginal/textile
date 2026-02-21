@@ -198,7 +198,8 @@ function printCheque() {
         '.amount-words{text-wrap:auto;position:absolute;top:35mm;left:10mm;font-size:17px;font-weight:600;max-width:130mm;line-height:1.4;text-transform:capitalize}' +
         '.amount-figures{position:absolute;top:40mm;left:20mm;right:10mm;font-size:16px;font-weight:bold;font-family:"Courier New",monospace;padding:2mm 3mm;min-width:40mm;text-align:right;color:#000}' +
         '.bill-number{position:absolute;bottom:10mm;left:40%;transform:translateX(-50%);font-size:11px}' +
-        '@media print{body{margin:0;padding:0}@page{size:202mm 92mm;margin:0}.cheque-container{page-break-after:always;margin:0}}' +
+        '@page{size:202mm 92mm;margin:0}' +
+        '@media print{body{margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}.cheque-container{page-break-after:always;margin:0}}' +
         '</style></head><body>' +
         '<div class="cheque-container">' +
         '<div class="ac-payee">A/C PAYEE</div>' +
